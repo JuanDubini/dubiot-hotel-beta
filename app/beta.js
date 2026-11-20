@@ -130,7 +130,7 @@
       if(!qrCanvas||!qrCanvas.width) throw new Error('El navegador no pudo dibujar el QR');
       qrStatus.textContent='Listo para descargar e imprimir.';qrButton.disabled=false;
       qrButton.onclick=()=>{qrCanvas.toBlob(blob=>{if(!blob){fail(new Error('No se pudo preparar la imagen del QR.'));return;}const url=URL.createObjectURL(blob),a=document.createElement('a');a.download=x.code+'-qr.png';a.href=url;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},'image/png');};
-    } catch(error) { qrStatus.textContent='No se pudo generar el QR. Actualizá la página e intentá nuevamente.';console.error('No se pudo generar el QR del activo',error); }
+    } catch(error) { qrStatus.textContent=`No se pudo generar el QR: ${error.message||'error desconocido'}`;console.error('No se pudo generar el QR del activo',error); }
 
     $('#eventForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;const v=Object.fromEntries(new FormData(e.currentTarget));try{const {error}=await sb.from('equipment_history').insert({hotel_id:hotel.id,equipment_id:x.id,event_type:v.event_type,title:v.title.trim(),details:v.details.trim(),actor_id:user.id});if(error)throw error;toast('Evento guardado para todo el equipo');await loadWorkspace();showAsset(assets.find(a=>a.id===x.id));}catch(err){fail(err);b.disabled=false;}};
     $('#statusForm')?.addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const {error}=await sb.from('equipment').update({status:e.currentTarget.elements.status.value}).eq('id',x.id).eq('hotel_id',hotel.id);if(error)throw error;toast('Estado actualizado e incorporado al historial');await loadWorkspace();showAsset(assets.find(a=>a.id===x.id));}catch(err){fail(err);b.disabled=false;}});
