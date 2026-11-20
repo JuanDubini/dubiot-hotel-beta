@@ -125,10 +125,15 @@
     try {
       if(typeof window.QRCode!=='function') throw new Error('No se cargó la biblioteca QR local');
       qrTarget.style.minHeight='220px';
-      new QRCode(qrTarget,{text:location.origin+location.pathname+'#asset='+encodeURIComponent(x.qr_code),width:220,height:220,colorDark:'#052039',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
-      const qrCanvas=qrTarget.querySelector('canvas');
-      if(!qrCanvas||!qrCanvas.width) throw new Error('El navegador no pudo dibujar el QR');
-      qrStatus.textContent='Listo para descargar e imprimir.';qrButton.disabled=false;
+      const qrText=location.origin+location.pathname+'#asset='+encodeURIComponent(x.qr_code);
+      const qrWork=document.createElement('div');
+      new QRCode(qrWork,{text:qrText,width:960,height:960,colorDark:'#052039',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M});
+      const qrSource=qrWork.querySelector('canvas');
+      if(!qrSource||!qrSource.width) throw new Error('El navegador no pudo dibujar el QR');
+      const qrCanvas=document.createElement('canvas');qrCanvas.width=1152;qrCanvas.height=1152;
+      const qrContext=qrCanvas.getContext('2d');qrContext.fillStyle='#ffffff';qrContext.fillRect(0,0,qrCanvas.width,qrCanvas.height);qrContext.drawImage(qrSource,96,96,960,960);
+      qrTarget.appendChild(qrCanvas);
+      qrStatus.textContent='QR de alta resolución, listo para descargar e imprimir.';qrButton.disabled=false;
       qrButton.onclick=()=>{qrCanvas.toBlob(blob=>{if(!blob){fail(new Error('No se pudo preparar la imagen del QR.'));return;}const url=URL.createObjectURL(blob),a=document.createElement('a');a.download=x.code+'-qr.png';a.href=url;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},'image/png');};
     } catch(error) { qrStatus.textContent=`No se pudo generar el QR: ${error.message||'error desconocido'}`;console.error('No se pudo generar el QR del activo',error); }
 
