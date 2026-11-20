@@ -1,0 +1,42 @@
+name: Publicar beta DubIoT Hotel
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obtener archivos
+        uses: actions/checkout@v4
+      - name: Preparar sitio de la beta
+        run: |
+          mkdir public
+          cp app/beta.html app/beta.css app/beta.js app/beta-sw.js app/supabase-config.js app/manifest.webmanifest app/dubiot-logo-canal.svg public/
+          cat > public/index.html <<'EOF'
+          <!doctype html>
+          <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=./beta.html"><title>DubIoT Hotel Beta</title><link rel="icon" href="./dubiot-logo-canal.svg"></head><body><p>Abriendo DubIoT Hotel Beta… <a href="./beta.html">Ingresar</a></p></body></html>
+          EOF
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Empaquetar sitio
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - name: Publicar sitio
+        id: deployment
+        uses: actions/deploy-pages@v4
