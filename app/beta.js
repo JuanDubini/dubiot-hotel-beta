@@ -28,7 +28,7 @@
     $('#authForm').onsubmit = async e => { e.preventDefault(); const email = $('#email').value.trim(), password = $('#password').value; $('#authSubmit').disabled = true;
       try {
         if (mode === 'signup') {
-          const {data,error} = await sb.auth.signUp({email,password,options:{data:{full_name:$('#fullName').value.trim()}}}); if (error) throw error;
+          const {data,error} = await sb.auth.signUp({email,password,options:{data:{full_name:$('#fullName').value.trim()},emailRedirectTo:window.location.origin+window.location.pathname}}); if (error) throw error;
           if (!data.session) showAuth('Cuenta creada. Revisá tu correo para confirmar la dirección y después volvé para iniciar sesión.');
           else await acceptSession(data.session.user);
         } else { const {data,error} = await sb.auth.signInWithPassword({email,password}); if (error) throw error; await acceptSession(data.user); }
@@ -125,3 +125,4 @@
   }
   start().catch(e=>{fail(e,'No se pudo conectar con Supabase.');root.innerHTML=`<section class="panel auth"><h1>No se pudo conectar</h1><p>${esc(e.message||'Revisá la conexión y la clave publicable.')}</p><button class="btn" onclick="location.reload()">Reintentar</button></section>`;});
 })();
+
