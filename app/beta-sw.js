@@ -1,4 +1,4 @@
-const CACHE='dubiot-hotel-beta-v14';
+const CACHE='dubiot-hotel-beta-v15';
 const FILES=['./','./index.html','./beta.html','./panel.html','./beta.css','./beta.js','./qrcode.js','./supabase-config.js','./manifest.webmanifest','./dubiot-logo-canal.svg'];
 self.addEventListener('install',event=>event.waitUntil(Promise.all([caches.open(CACHE).then(cache=>cache.addAll(FILES)),self.skipWaiting()])));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('dubiot-hotel-beta-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
