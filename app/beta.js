@@ -97,7 +97,10 @@
   }
   function renderHome() {
     const pendingChecks=dailyChecks.filter(c=>c.verification_status==='pending').length;
-    const openRepairs=maintenanceTasks.filter(t=>t.status==='in_progress').length + openIssues.filter(i=>['open','in_review'].includes(i.status)).length;
+    const activeTasks=maintenanceTasks.filter(t=>!['completed','cancelled'].includes(t.status));
+    const activeIssues=openIssues.filter(i=>['open','in_review'].includes(i.status));
+    const openAssetIds=new Set([...assets.filter(a=>a.status!=='operational').map(a=>a.id),...activeTasks.map(t=>t.equipment_id),...activeIssues.map(i=>i.equipment_id)].filter(Boolean));
+    const openRepairs=openAssetIds.size+activeTasks.filter(t=>!t.equipment_id).length+activeIssues.filter(i=>!i.equipment_id).length;
     const operational=assets.filter(a=>a.status==='operational').length;
     const nav=`<nav class="desktop-nav"><a class="brand" href="#"><img src="dubiot-logo-canal.svg" alt=""><span><b>DubIoT</b><small>HOTEL OPERATIONS · BETA</small></span></a><div class="desktop-tabs"><button class="navtab ${activeView==='dashboard'?'active':''}" data-tab="dashboard">Resumen</button><button class="navtab ${activeView==='assets'?'active':''}" data-tab="assets">Activos</button><button class="navtab ${activeView==='maintenance'?'active':''}" data-tab="maintenance">Controles y reparaciones</button></div><span class="badge operational">● Sistema operativo</span></nav>`;
     let content='';
