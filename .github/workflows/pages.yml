@@ -26,7 +26,7 @@ jobs:
       - name: Preparar sitio de la beta
         run: |
           mkdir public
-          cp app/beta.html app/panel.html app/admin.html app/beta.css app/beta.js app/sprint2.js app/admin.js app/beta-sw.js app/qrcode.js app/supabase-config.js app/manifest.webmanifest app/dubiot-logo-canal.svg public/
+          cp app/beta.html app/panel.html app/admin.html app/beta.css app/beta.js app/sprint2.js app/admin.js app/admin-subscriptions.css app/admin-subscriptions.js app/admin-trial-requests.js app/beta-sw.js app/qrcode.js app/supabase-config.js app/manifest.webmanifest app/dubiot-logo-canal.svg public/
           cat > public/index.html <<'EOF'
           <!doctype html>
           <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=./beta.html"><title>DubIoT Hotel Beta</title><link rel="icon" href="./dubiot-logo-canal.svg"></head><body><p>Abriendo DubIoT Hotel Beta… <a href="./beta.html">Ingresar</a></p></body></html>
