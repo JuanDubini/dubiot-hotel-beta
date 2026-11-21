@@ -88,14 +88,8 @@
     }
     const selectedHotel=localStorage.getItem(`dubiot-selected-hotel-${user.id}`);
     membership=activeMemberships.find(m=>m.hotel_id===selectedHotel)||activeMemberships[0]||memberships[0]||null;
-    // Confirmed accounts without active access enter the public demo beta as technicians.
-    // The database RPC limits automatic membership to hotel-demo and preserves other hotels' approval rules.
-    if (!activeMemberships.length && !autoJoinAttempted && authUser.email_confirmed_at) {
-      const requestedRole=memberships.find(m=>m.status==='pending')?.role||'technician';
-      const {error:joinError}=await sb.rpc('request_hotel_membership_by_slug',{_hotel_slug:'hotel-demo',_requested_role:requestedRole});
-      if (!joinError) return acceptSession(authUser,true);
-      console.warn('No se pudo activar el acceso directo a la beta.',joinError);
-    }
+    // Real hotel access requires an approved active membership.
+    // Never automatically enroll authenticated users in the shared demo hotel.
     if (!membership || membership.status !== 'active') {
       return authUser.email && !authUser.email_confirmed_at
         ? showEmailConfirmation(authUser.email)
