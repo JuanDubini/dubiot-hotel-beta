@@ -378,9 +378,42 @@
     showLoading();
     if(!sb){root.innerHTML='<section class="panel auth"><h1>Configuración pendiente</h1><p>No se encontró la URL o la clave publicable de Supabase. Revisá <code>supabase-config.js</code>.</p></section>';return;}
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./beta-sw.js').then(reg=>reg.update()).catch(()=>{});
-    const {data,error}=await sb.auth.getSession();if(error)throw error;
-    sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return;}if(session?.user)setTimeout(()=>acceptSession(session.user).catch(e=>{fail(e,'No se pudieron cargar los datos del hotel.');showAuth();}),0);else{user=null;membership=null;hotel=null;membershipConflict=false;showAuth();}});
-    if(location.hash.includes('type=recovery'))showPasswordRecovery();else if(data.session?.user)await acceptSession(data.session.user);else showAuth();
+    const callback = new URLSearchParams(location.hash.slice(1));
+    let recovering = callback.get('type') === 'recovery';
+    const handleAccessError = error => {
+      console.error(error);
+      showAuth('La sesión se abrió, pero no pudimos cargar los datos del hotel. Volvé a intentar.');
+    };
+    sb.auth.onAuthStateChange((event,session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        recovering = true;
+        showPasswordRecovery();
+        return;
+      }
+      if (event === 'SIGNED_OUT') {
+        recovering = false;
+        user = membership = hotel = null;
+        membershipConflict = false;
+        showAuth();
+        return;
+      }
+      if (recovering || event === 'INITIAL_SESSION' || !session?.user) return;
+      setTimeout(() => {
+        if (!recovering) acceptSession(session.user).catch(handleAccessError);
+      }, 0);
+    });
+    const {data,error}=await sb.auth.getSession();
+    if(error) throw error;
+    if (callback.has('error')) {
+      history.replaceState(history.state, '', location.pathname + location.search);
+      showAuth('El enlace del correo venció o ya se usó. Pedí uno nuevo desde esta pantalla.');
+    } else if (recovering && data.session?.user) {
+      showPasswordRecovery();
+    } else if (data.session?.user) {
+      await acceptSession(data.session.user).catch(handleAccessError);
+    } else {
+      showAuth();
+    }
   }
   start().catch(e=>{fail(e,'No se pudo conectar con Supabase.');root.innerHTML=`<section class="panel auth"><h1>No se pudo conectar</h1><p>${esc(e.message||'Revisá la conexión y la clave publicable.')}</p><button class="btn" onclick="location.reload()">Reintentar</button></section>`;});
 })();
