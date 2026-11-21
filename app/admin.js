@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const $=(s,root=document)=>root.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const cfg=window.DUBIOT_SUPABASE_CONFIG||{};
   const sb=cfg.enabled&&window.supabase?.createClient&&cfg.url&&cfg.publishableKey?window.supabase.createClient(cfg.url,cfg.publishableKey):null;
   const labels={hotel_manager:'Responsable del hotel',supervisor:'Supervisor',technician:'Técnico',staff:'Personal operativo'};
