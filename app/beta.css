@@ -38,3 +38,108 @@ body[data-app-mode="admin"] .admin-head{display:flex;align-items:flex-end;justif
 .auth-submit{width:100%;min-height:46px;margin-top:2px;font-size:14px}
 .auth-help{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin:15px 0 0;color:#607a8e;font-size:12px}.auth-help[hidden]{display:none!important}.auth-link{padding:2px 0;border:0;background:none;color:#a9c1d1;font:600 12px 'DM Sans',sans-serif;cursor:pointer}.auth-link:hover{color:var(--mint);text-decoration:underline}.auth-notice{min-height:18px;margin:18px 0 0;text-align:center;font-size:11px;line-height:1.5}.auth-layout .notice{margin:0 0 18px;font-size:13px;line-height:1.5}
 @media(max-width:650px){.wrap.auth-layout{min-height:calc(100svh - 62px);padding:26px 16px 38px}.auth-layout .auth{padding:26px 22px;border-radius:16px}.auth-heading h1{font-size:25px}.auth-heading{margin-bottom:20px}.auth-help{gap:8px}}
+
+/* Field home: keep the inventory at full width, below the capture tools. */
+body[data-app-mode="field"] .wrap:has(.field-layout) {
+  width: min(1440px, 100%);
+  padding: clamp(24px, 4vw, 48px) clamp(16px, 4vw, 56px) 64px;
+}
+
+body[data-app-mode="field"]:has(.field-layout) .top {
+  padding-inline: max(clamp(16px, 4vw, 56px), calc((100% - 1328px) / 2));
+}
+
+.wrap:has(.field-layout) .mobile-stack { flex-wrap: wrap; }
+.wrap:has(.field-layout) .mobile-stack > div:first-child { min-width: 0; }
+.wrap:has(.field-layout) .mobile-stack h1 { font-size: clamp(28px, 3vw, 42px); }
+.wrap:has(.field-layout) .mobile-stack p { margin: 6px 0 0; }
+.wrap:has(.field-layout) .mobile-stack .actions { margin-top: 0; }
+.wrap:has(.field-layout) .mobile-stack a.btn {
+  display: inline-flex;
+  align-items: center;
+  color: var(--mint);
+  text-decoration: none;
+}
+
+.field-banner {
+  margin-block: 24px 0;
+  padding: 16px clamp(16px, 2vw, 24px);
+}
+
+.field-banner #scanQr { margin: 0; }
+.field-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.field-tools { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.field-layout > *, .field-tools > * { min-width: 0; }
+.field-layout .my-work-orders { margin: 0; }
+.field-layout .my-work-orders .row { flex-wrap: wrap; }
+.field-layout #dailyCheckForm { margin-bottom: 0; }
+.field-layout #dailyCheckForm .input { min-width: 0; min-height: 42px; font-size: 16px; }
+.field-layout #dailyCheckForm .btn { min-height: 44px; margin-top: 6px; }
+
+.field-layout > :last-child {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.field-assets-head {
+  display: flex;
+  gap: 14px;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.field-assets-head p { margin: 5px 0 0; }
+.field-search { display: grid; gap: 5px; color: var(--muted); font-size: .85rem; }
+.field-assets-head > #search, .field-search { width: min(100%, 320px); }
+.field-assets-head #search { width: 100%; max-width: 320px; font-size: 16px; }
+.field-assets-grid { grid-template-columns: minmax(0, 1fr); margin-top: 16px; }
+.field-assets-grid > .empty { grid-column: 1 / -1; }
+.field-assets-grid .asset[hidden] { display: none; }
+.field-assets-grid .asset {
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px;
+}
+
+.field-assets-grid .asset > .thumb, .field-assets-grid .asset > .thumb > img {
+  width: 64px;
+  height: 64px;
+}
+
+.field-assets-grid .asset > div:last-child { display: flex; flex-direction: column; min-width: 0; min-height: 100%; }
+.field-assets-grid .asset .row { flex-wrap: wrap; justify-content: flex-start; gap: 4px 8px; }
+.field-assets-grid .asset h3, .field-assets-grid .asset p { overflow-wrap: anywhere; }
+.field-assets-grid .asset h3 { margin-block: 2px 4px; }
+.field-assets-grid .asset .actions { margin-top: auto; padding-top: 10px; }
+.field-assets-grid .asset .btn { min-height: 44px; }
+.field-assets-grid .asset .btn.primary {
+  color: var(--mint);
+  background: var(--panel2);
+  border-color: var(--line);
+}
+.field-assets-grid .asset .btn.primary:hover { background: #204963; }
+
+@media (max-width: 650px) {
+  .wrap:has(.field-layout) .mobile-stack .actions { width: 100%; }
+  .field-assets-head > #search, .field-assets-head #search, .field-search { width: 100%; max-width: none; }
+}
+
+@media (min-width: 720px) {
+  .field-layout:has(> .my-work-orders), .field-tools:has(.my-work-orders) {
+    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+    align-items: start;
+  }
+  .field-layout > .field-tools { grid-column: 1 / -1; }
+  .field-assets-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .field-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; }
+  .field-banner > b, .field-banner > span { grid-column: 1; }
+  .field-banner #scanQr { grid-column: 2; grid-row: 1 / span 2; align-self: center; width: auto; }
+}
+
+@media (min-width: 1120px) {
+  .field-assets-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
