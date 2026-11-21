@@ -35,10 +35,55 @@
     return `<div class="row mobile-stack"><div><p class="muted">DubIoT · ${esc(hotel?.name || 'Hotel Demo')}</p><h1>${title}</h1><p>${subtitle}</p></div><div class="actions">${actions}</div></div>`;
   }
   function showLoading(){root.innerHTML=`<section class="loading-view"><div class="loading-line"></div><h1>${appMode==='panel'?'Preparando el panel de PC':'Preparando la app de campo'}</h1><p>Conectando con el hotel y sincronizando la información…</p><div class="loading-cards"><i></i><i></i><i></i></div></section>`;}
+  function bindGoogleAccess() {
+    const button = $('#googleAccess');
+    const notice = $('#googleAccessNotice');
+    button.onclick = async () => {
+      button.disabled = true;
+      notice.hidden = false;
+      notice.textContent = 'Conectando con Google…';
+      try {
+        const settings = await fetch(new URL('/auth/v1/settings', cfg.url), {
+          headers: {apikey: cfg.publishableKey},
+          cache: 'no-store'
+        });
+        if (!settings.ok) throw new Error('No se pudo comprobar el proveedor de acceso.');
+        const {external} = await settings.json();
+        if (!external?.google) {
+          notice.textContent = 'El acceso con Google está pendiente de activación. Podés entrar con tu correo.';
+          return;
+        }
+        if (location.hash.startsWith('#asset=')) {
+          sessionStorage.setItem('dubiot-login-asset', location.hash);
+        }
+        const {data, error} = await sb.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: location.origin + location.pathname,
+            skipBrowserRedirect: true,
+            queryParams: {prompt: 'select_account'}
+          }
+        });
+        if (error || !data?.url) throw error || new Error('Google no devolvió una dirección de acceso.');
+        location.assign(data.url);
+      } catch (error) {
+        console.error(error);
+        notice.textContent = 'No se pudo abrir Google. Volvé a intentar o ingresá con tu correo.';
+      } finally {
+        button.disabled = false;
+      }
+    };
+  }
   function showAuth(message = '') {
     sessionBox.innerHTML = '';
     root.classList.add('auth-layout');
-    root.innerHTML = `<section class="panel auth"><div class="auth-heading"><span class="auth-kicker">DUBIOT · HOTEL OPERATIONS</span><h1>Acceso del equipo</h1><p>Entrá para consultar activos y registrar el mantenimiento del hotel.</p></div>${message ? `<div class="notice">${esc(message)}</div>` : ''}<div class="auth-switch" role="tablist" aria-label="Tipo de acceso"><button class="auth-tab active" id="showLogin" type="button" role="tab" aria-selected="true">Ingresar</button><button class="auth-tab" id="showSignup" type="button" role="tab" aria-selected="false">Crear cuenta</button></div><form id="authForm"><div id="nameField" class="field" hidden><label for="fullName">Nombre y apellido</label><input id="fullName" class="input" autocomplete="name"></div><div class="field"><label for="email">Correo electrónico</label><input id="email" class="input" type="email" required autocomplete="email" placeholder="nombre@hotel.com"></div><div class="field"><label for="password">Contraseña</label><div class="password-control"><input id="password" class="input" type="password" required minlength="8" autocomplete="current-password" placeholder="Ingresá tu contraseña"><button class="password-toggle" id="togglePassword" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button></div></div><button class="btn primary auth-submit" id="authSubmit" type="submit">Ingresar</button><div class="auth-help" id="authHelp"><button class="auth-link" id="forgotPassword" type="button">Olvidé mi contraseña</button><span aria-hidden="true">·</span><button class="auth-link" id="resendConfirmation" type="button">Reenviar confirmación</button></div><p class="auth-notice muted" id="authNotice" aria-live="polite">La cuenta y los registros se guardan de forma segura en DubIoT.</p></form></section>`;
+    root.innerHTML = `<section class="panel auth"><div class="auth-heading"><span class="auth-kicker">DUBIOT · HOTEL OPERATIONS</span><h1>Acceso del equipo</h1><p>Entrá para consultar activos y registrar el mantenimiento del hotel.</p></div>${message ? `<div class="notice">${esc(message)}</div>` : ''}<button class="btn auth-submit" id="googleAccess" type="button" style="display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;border-color:#dadce0;color:#202124;margin:0 0 16px;min-height:46px;">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M43.6 24.5c0-1.4-.1-2.8-.4-4.1H24v7.8h11a9.4 9.4 0 0 1-4.1 6.1v5.1h6.6c3.9-3.6 6.1-8.8 6.1-14.9Z"/><path fill="#34A853" d="M24 44c5.5 0 10.1-1.8 13.5-4.9l-6.6-5.1c-1.8 1.2-4.1 1.9-6.9 1.9-5.3 0-9.8-3.6-11.4-8.5H5.8v5.3A20 20 0 0 0 24 44Z"/><path fill="#FBBC05" d="M12.6 27.4a12 12 0 0 1 0-6.8v-5.3H5.8a20 20 0 0 0 0 17.4l6.8-5.3Z"/><path fill="#EA4335" d="M24 12.1c3 0 5.7 1 7.8 3.1l5.8-5.8A19.2 19.2 0 0 0 24 4 20 20 0 0 0 5.8 15.3l6.8 5.3c1.6-4.9 6.1-8.5 11.4-8.5Z"/></svg>
+        Continuar con Google
+      </button>
+      <p class="auth-notice muted" id="googleAccessNotice" role="status" hidden></p>
+      <div class="auth-switch" role="tablist" aria-label="Tipo de acceso"><button class="auth-tab active" id="showLogin" type="button" role="tab" aria-selected="true">Ingresar</button><button class="auth-tab" id="showSignup" type="button" role="tab" aria-selected="false">Crear cuenta</button></div><form id="authForm"><div id="nameField" class="field" hidden><label for="fullName">Nombre y apellido</label><input id="fullName" class="input" autocomplete="name"></div><div class="field"><label for="email">Correo electrónico</label><input id="email" class="input" type="email" required autocomplete="email" placeholder="nombre@hotel.com"></div><div class="field"><label for="password">Contraseña</label><div class="password-control"><input id="password" class="input" type="password" required minlength="8" autocomplete="current-password" placeholder="Ingresá tu contraseña"><button class="password-toggle" id="togglePassword" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button></div></div><button class="btn primary auth-submit" id="authSubmit" type="submit">Ingresar</button><div class="auth-help" id="authHelp"><button class="auth-link" id="forgotPassword" type="button">Olvidé mi contraseña</button><span aria-hidden="true">·</span><button class="auth-link" id="resendConfirmation" type="button">Reenviar confirmación</button></div><p class="auth-notice muted" id="authNotice" aria-live="polite">La cuenta y los registros se guardan de forma segura en DubIoT.</p></form></section>`;
+    bindGoogleAccess();
     bindPasswordToggle('#password', '#togglePassword');
     let mode = 'login'; $('#nameField').style.display = 'none';
     const setMode = next => { mode = next; $('#nameField').hidden = next !== 'signup'; $('#nameField').style.display = next === 'signup' ? 'grid' : 'none'; $('#fullName').required = next === 'signup'; $('#password').autocomplete = next === 'signup' ? 'new-password' : 'current-password'; $('#authSubmit').textContent = next === 'signup' ? 'Crear cuenta' : 'Ingresar'; $('#showLogin').classList.toggle('active', next === 'login'); $('#showSignup').classList.toggle('active', next === 'signup'); $('#showLogin').setAttribute('aria-selected',String(next==='login')); $('#showSignup').setAttribute('aria-selected',String(next==='signup')); $('#authHelp').hidden = next === 'signup'; $('#authNotice').textContent = next === 'signup' ? 'Usá al menos 8 caracteres. Después confirmá tu correo para ingresar.' : 'La cuenta y los registros se guardan de forma segura en DubIoT.'; };
@@ -406,7 +451,9 @@
     if(error) throw error;
     if (callback.has('error')) {
       history.replaceState(history.state, '', location.pathname + location.search);
-      showAuth('El enlace del correo venció o ya se usó. Pedí uno nuevo desde esta pantalla.');
+      showAuth(callback.get('error_code') === 'otp_expired'
+        ? 'El enlace del correo venció o ya se usó. Pedí uno nuevo desde esta pantalla.'
+        : 'No pudimos completar el ingreso. Volvé a intentar con Google o con tu correo.');
     } else if (recovering && data.session?.user) {
       showPasswordRecovery();
     } else if (data.session?.user) {
