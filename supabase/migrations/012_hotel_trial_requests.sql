@@ -4,6 +4,7 @@ create table private.hotel_trial_import_key (
   singleton boolean primary key default true check (singleton),
   key_hash bytea not null
 );
+alter table private.hotel_trial_import_key enable row level security;
 revoke all on private.hotel_trial_import_key from public, anon, authenticated, service_role;
 
 create table public.hotel_trial_requests (
