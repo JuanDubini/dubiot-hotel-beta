@@ -26,6 +26,7 @@ jobs:
       - name: Preparar sitio de la beta
         run: |
           mkdir public
+          cp app/ayuda.html app/ayuda.css app/Manual_DUBIOT_Hotel_v3.pdf public/
           cp app/beta.html app/panel.html app/admin.html app/beta.css app/beta.js app/sprint2.js app/admin.js app/admin-subscriptions.css app/admin-subscriptions.js app/admin-trial-requests.js app/beta-sw.js app/qrcode.js app/supabase-config.js app/manifest.webmanifest app/dubiot-logo-canal.svg public/
           cat > public/index.html <<'EOF'
           <!doctype html>
