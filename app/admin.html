@@ -5,12 +5,46 @@
   <meta name="theme-color" content="#101A24"><meta name="description" content="Administración global de DubIoT Hotel">
   <title>DubIoT — Administración de plataforma</title><link rel="icon" type="image/svg+xml" href="dubiot-logo-canal.svg">
   <link rel="stylesheet" href="beta.css?v=passwordtoggle20261121">
+  <link rel="stylesheet" href="admin-subscriptions.css?v=1">
 </head>
 <body data-app-mode="admin">
   <header class="top"><a class="brand" href="./beta.html"><img src="dubiot-logo-canal.svg" alt="DubIoT"><span><b>DubIoT</b><small>ADMINISTRACIÓN DE PLATAFORMA</small></span></a><div id="session"></div></header>
-  <main id="root" class="wrap"><section class="loading-view"><h1>Conectando con DubIoT…</h1><p>Verificando la sesión administrativa.</p></section></main>
+  <main class="wrap">
+    <div id="root"><section class="loading-view"><h1>Conectando con DubIoT…</h1><p>Verificando la sesión administrativa.</p></section></div>
+    <section id="subscriptionRoot" hidden>
+      <div class="admin-head">
+        <div><p class="muted">DubIoT · Control global</p><h1 tabindex="-1">Suscripciones</h1></div>
+        <div class="actions">
+          <button class="btn quiet" type="button" id="backToUsers">Administración de usuarios</button>
+          <button class="btn" type="button" data-subscription-refresh>Actualizar</button>
+        </div>
+      </div>
+      <p class="subscription-feedback" role="status" data-subscription-feedback></p>
+      <div data-subscription-content></div>
+      <dialog class="subscription-dialog" aria-labelledby="subscriptionDialogTitle"></dialog>
+    </section>
+    <section id="trialRequestsRoot" hidden>
+      <div class="admin-head">
+        <div><p class="muted">DubIoT · Control global</p><h1 tabindex="-1">Solicitudes de prueba</h1></div>
+        <div class="actions">
+          <button class="btn quiet" type="button" id="backFromTrialRequests">Administración de usuarios</button>
+          <button class="btn" type="button" data-trial-refresh>Actualizar</button>
+        </div>
+      </div>
+      <div class="row mobile-stack">
+        <label class="field">Estado<select class="input">
+          <option value="pending">Pendientes</option><option value="approved">Aprobadas</option>
+          <option value="activated">Activadas</option><option value="rejected">Rechazadas</option>
+        </select></label>
+        <button class="btn quiet" type="button" data-trial-key>Clave de sincronización</button>
+      </div>
+      <p role="status" data-trial-feedback></p>
+      <div data-trial-content></div>
+      <dialog class="subscription-dialog" aria-labelledby="trialDialogTitle"></dialog>
+    </section>
+  </main>
   <div id="toast" role="status" class="toast"></div>
-  <script src="supabase-config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="admin.js?v=teamaccess20261121"></script>
+  <script src="supabase-config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin-subscriptions.js?v=1"></script><script src="admin-trial-requests.js?v=1"></script><script src="admin.js?v=trialrequests1"></script>
 </body>
 </html>
-
