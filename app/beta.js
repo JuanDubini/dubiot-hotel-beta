@@ -122,7 +122,7 @@
     const hid = hotel.id;
     const [eq, hist, tasks, issues, checks, msResult] = await Promise.all([
       sb.from('equipment').select('*').eq('hotel_id',hid).order('created_at',{ascending:false}),
-      sb.from('equipment_history').select('*').eq('hotel_id',hid).order('occurred_at',{ascending:false}),
+      sb.from('equipment_history').select('*').eq('hotel_id',hid).order('created_at',{ascending:false}),
       sb.from('maintenance_tasks').select('*').eq('hotel_id',hid).order('created_at',{ascending:false}),
       sb.from('issues').select('*').eq('hotel_id',hid).order('created_at',{ascending:false}),
       sb.from('daily_checks').select('*').eq('hotel_id',hid).order('checked_at',{ascending:false}),
