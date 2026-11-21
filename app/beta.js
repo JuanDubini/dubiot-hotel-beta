@@ -71,7 +71,7 @@
       } catch (err) { fail(err, 'No se pudo iniciar sesión.'); $('#authSubmit') && ($('#authSubmit').disabled = false); }
     };
   }
-  async function acceptSession(authUser, autoJoinAttempted = false) {
+  async function acceptSession(authUser) {
     user = authUser;
     recordPresence();
     const [{data:p,error:pe},{data:allMemberships,error:me}] = await Promise.all([
