@@ -53,7 +53,8 @@
     const session=$('#session'); if(!session)return;
     let el=$('#sprint2Connection');
     if(!el){el=document.createElement('span');el.id='sprint2Connection';el.className='connection-indicator';session.prepend(el);}
-    el.textContent=!navigator.onLine?`Sin conexión · ${queueCount} en cola`:queueCount?`Conectado · ${queueCount} pendiente${queueCount===1?'':'s'}`:'Conectado';
+    // navigator.onLine only indicates browser connectivity, not Supabase availability.
+    el.textContent=!navigator.onLine?`Sin Internet · ${queueCount} en cola`:queueCount?`Internet disponible · ${queueCount} pendiente${queueCount===1?'':'s'} de sincronizar`:'Internet disponible';
     el.classList.toggle('offline',!navigator.onLine);el.classList.toggle('queued',queueCount>0);
   }
   function isNetworkError(e){return !navigator.onLine||/network|fetch|failed to fetch|load failed|connection|timeout/i.test(e?.message||'');}
