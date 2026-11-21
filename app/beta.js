@@ -92,7 +92,11 @@
       if (!joinError) return acceptSession(authUser,true);
       console.warn('No se pudo activar el acceso directo a la beta.',joinError);
     }
-    if (!membership || membership.status !== 'active') return showMembershipGate();
+    if (!membership || membership.status !== 'active') {
+      return authUser.email && !authUser.email_confirmed_at
+        ? showEmailConfirmation(authUser.email)
+        : showMembershipGate();
+    }
     const {data:h,error:he} = await sb.from('hotels').select('id,name,slug,timezone').eq('id',membership.hotel_id).maybeSingle();
     if (he) throw he; if (!h) { membershipConflict=true; return showMembershipGate(); }
     membershipConflict=false; hotel = h; await loadWorkspace();
@@ -108,6 +112,63 @@
     root.innerHTML=`<section class="panel auth"><h1>Recuperar contraseña</h1><p>Elegí una contraseña nueva para tu cuenta de DubIoT.</p><form id="passwordRecoveryForm" class="field"><label for="newPassword">Nueva contraseña</label><div class="password-control"><input id="newPassword" class="input" type="password" minlength="8" autocomplete="new-password" required><button class="btn" id="toggleNewPassword" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button></div><button class="btn primary">Guardar contraseña</button></form></section>`;
     bindPasswordToggle('#newPassword', '#toggleNewPassword');
     $('#passwordRecoveryForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const {error}=await sb.auth.updateUser({password:$('#newPassword').value});if(error)throw error;await sb.auth.signOut();showAuth('Contraseña actualizada. Ya podés iniciar sesión con la nueva contraseña.');}catch(err){fail(err,'No se pudo actualizar la contraseña.');b.disabled=false;}};
+  }
+  function showEmailConfirmation(email) {
+    root.classList.add('auth-layout');
+    sessionBox.innerHTML = '<button class="btn quiet" id="logout">Cerrar sesión</button>';
+    $('#logout').onclick = signOut;
+    root.innerHTML = `<section class="panel auth" aria-labelledby="confirmEmailTitle">
+      <div class="auth-heading">
+        <h1 id="confirmEmailTitle">Confirmá tu correo</h1>
+        <p>Abrí el enlace de confirmación que enviamos a <strong>${esc(email)}</strong> para entrar a Hotel Demo.</p>
+      </div>
+      <button class="btn primary auth-submit" id="checkConfirmation" type="button">Ya confirmé mi correo</button>
+      <div class="auth-help"><button class="auth-link" id="resendPendingEmail" type="button">Enviar un enlace nuevo</button></div>
+      <p class="auth-notice" id="confirmationStatus" role="status"></p>
+    </section>`;
+    const status = $('#confirmationStatus');
+    const check = $('#checkConfirmation');
+    const resend = $('#resendPendingEmail');
+    check.onclick = async () => {
+      check.disabled = true;
+      resend.disabled = true;
+      status.textContent = 'Comprobando tu correo…';
+      try {
+        const {data, error} = await sb.auth.getUser();
+        if (error) throw error;
+        if (!data.user?.email_confirmed_at) {
+          status.textContent = 'Todavía falta confirmar el correo. Usá el enlace del mensaje más reciente.';
+          return;
+        }
+        await acceptSession(data.user);
+      } catch (error) {
+        console.error(error);
+        status.textContent = 'No pudimos comprobar el acceso. Volvé a intentar o cerrá sesión y entrá nuevamente.';
+      } finally {
+        check.disabled = false;
+        resend.disabled = false;
+      }
+    };
+    resend.onclick = async () => {
+      check.disabled = true;
+      resend.disabled = true;
+      status.textContent = 'Solicitando un enlace nuevo…';
+      try {
+        const {error} = await sb.auth.resend({
+          type: 'signup',
+          email,
+          options: {emailRedirectTo: location.origin + location.pathname}
+        });
+        if (error) throw error;
+        status.textContent = 'Revisá tu bandeja de entrada y spam. Abrí el mensaje más reciente.';
+      } catch (error) {
+        console.error(error);
+        status.textContent = 'No pudimos enviar otro enlace. Esperá un momento y volvé a intentar.';
+      } finally {
+        check.disabled = false;
+        resend.disabled = false;
+      }
+    };
   }
   function showMembershipGate() {
     root.classList.add('auth-layout');
