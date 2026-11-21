@@ -161,3 +161,7 @@ body[data-app-mode="field"]:has(.field-layout) .top {
   .field-layout #dailyCheckForm > label[for="checkName"] { grid-area: 1 / 2; }
   .field-layout #dailyCheckForm > #checkName { grid-area: 2 / 2; }
 }
+
+.field-layout .field-control-title { flex-wrap: wrap; }
+.field-layout .field-control-title p { margin: 6px 0 0; }
+.field-layout #dailyCheckForm[hidden] { display: none; }
