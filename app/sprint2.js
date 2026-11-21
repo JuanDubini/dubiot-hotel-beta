@@ -141,10 +141,34 @@
     const count=root.querySelector('.row h2 + p');if(count&&/eventos · seguimiento cronológico/.test(count.textContent)){const number=Number.parseInt(count.textContent,10);count.textContent=properEventCount(number);}
     if(!app()?.canManage?.())root.querySelectorAll('.desktop-tabs .navtab').forEach(b=>{if(/verificar controles/i.test(b.textContent))b.remove();});
   }
-  function addPanelNav(){
-    const nav=$('.desktop-tabs');if(!nav||nav.dataset.sprintNav)return;nav.dataset.sprintNav='1';
-    const c=ctx();const ordersBtn=document.createElement('button');ordersBtn.className='navtab';ordersBtn.textContent='Órdenes de trabajo';ordersBtn.dataset.sprintSection='orders';nav.append(ordersBtn);
-    if(c?.canManageTeam()){const cfgBtn=document.createElement('button');cfgBtn.className='navtab';cfgBtn.textContent='Configuración';cfgBtn.dataset.sprintSection='settings';nav.append(cfgBtn);}
+  function addPanelNav() {
+    const nav = $('.desktop-tabs');
+    if (!nav) return;
+    const c = ctx();
+    if (!nav.dataset.sprintNav) {
+      nav.dataset.sprintNav = '1';
+      const ordersButton = document.createElement('button');
+      ordersButton.className = 'navtab';
+      ordersButton.textContent = 'Órdenes de trabajo';
+      ordersButton.dataset.sprintSection = 'orders';
+      nav.append(ordersButton);
+      if (c?.canManageTeam()) {
+        const settingsButton = document.createElement('button');
+        settingsButton.className = 'navtab';
+        settingsButton.textContent = 'Configuración';
+        settingsButton.dataset.sprintSection = 'settings';
+        nav.append(settingsButton);
+      }
+    }
+    if (!$('.pc-main')) return;
+    for (const button of nav.querySelectorAll('.navtab')) {
+      const selected = activeSection
+        ? button.dataset.sprintSection === activeSection
+        : button.dataset.tab === c.activeView;
+      button.classList.toggle('active', selected);
+      if (selected) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    }
   }
   function route(section,filters={}){activeSection=section;orderFilter={...orderFilter,...filters};app()?.render?.();}
   function onDocumentClick(e){
@@ -363,9 +387,10 @@
 
   async function onRender(){
     const c=ctx();if(!c?.hotel?.id)return;
+    if (c.mode === 'panel') addPanelNav();
     await refreshData();updateConnection();refreshDashboardKpis();
     enhanceCatalogs();statusIndicator();showEmptyActions();if(c.activeView==='assets')showClearSearch();
-    if(c.mode==='panel'){addPanelNav();if(activeSection==='orders')renderOrders();else if(activeSection==='settings')renderSettings();}
+    if(c.mode==='panel'){if(activeSection==='orders')renderOrders();else if(activeSection==='settings')renderSettings();}
     else {if(activeSection==='orders')renderFieldOrders();else{scanButton();fieldTaskBlock();}}
   }
 
