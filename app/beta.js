@@ -5,7 +5,7 @@
   const cfg = window.DUBIOT_SUPABASE_CONFIG || {};
   const sb = cfg.enabled && window.supabase?.createClient && cfg.url && cfg.publishableKey
     ? window.supabase.createClient(cfg.url, cfg.publishableKey) : null;
-  let user = null, profile = null, membership = null, hotel = null;
+  let user = null, profile = null, membership = null, hotel = null, membershipConflict = false;
   let assets = [], members = [], activeAsset = null, toastTimer, presenceTimer=null, maintenanceTasks = [], openIssues = [], dailyChecks = [], activeView = document.body.dataset.appMode === 'field' ? 'field' : 'dashboard', lastPanelView='assets';
   const appMode = document.body.dataset.appMode || 'field';
   const $ = (sel, scope = document) => scope.querySelector(sel);
@@ -71,16 +71,20 @@
   async function acceptSession(authUser) {
     user = authUser;
     recordPresence();
-    const [{data:p,error:pe},{data:m,error:me}] = await Promise.all([
+    const [{data:p,error:pe},{data:allMemberships,error:me}] = await Promise.all([
       sb.from('profiles').select('id,full_name').eq('id',user.id).maybeSingle(),
-      sb.from('hotel_memberships').select('id,hotel_id,role,status').eq('user_id',user.id).order('requested_at',{ascending:false}).limit(1).maybeSingle()
+      sb.from('hotel_memberships').select('id,hotel_id,role,status,requested_at').eq('user_id',user.id).order('requested_at',{ascending:false})
     ]);
     if (pe) throw pe; if (me) throw me;
-    profile = p; membership = m;
+    profile = p;
+    const memberships=allMemberships||[];
+    const activeMemberships=memberships.filter(m=>m.status==='active');
+    const selectedHotel=localStorage.getItem(`dubiot-selected-hotel-${user.id}`);
+    membership=activeMemberships.find(m=>m.hotel_id===selectedHotel)||activeMemberships[0]||memberships[0]||null;
     if (!membership || membership.status !== 'active') return showMembershipGate();
     const {data:h,error:he} = await sb.from('hotels').select('id,name,slug,timezone').eq('id',membership.hotel_id).maybeSingle();
-    if (he) throw he; if (!h) { membership = null; return showMembershipGate(); }
-    hotel = h; await loadWorkspace();
+    if (he) throw he; if (!h) { membershipConflict=true; return showMembershipGate(); }
+    membershipConflict=false; hotel = h; await loadWorkspace();
   }
   function recordPresence(){
     if(!user||!sb)return;
@@ -96,11 +100,22 @@
     const waiting = membership?.status === 'pending';
     const rejected = membership?.status === 'rejected' || membership?.status === 'suspended';
     sessionBox.innerHTML = `<button class="btn quiet" id="logout">Cerrar sesión</button>`;
-    root.innerHTML = `<section class="panel auth"><h1>${waiting ? 'Acceso pendiente' : rejected ? 'Acceso sin habilitar' : 'Ingresar al hotel'}</h1><p>${waiting ? 'El responsable del hotel debe aprobar el acceso solicitado.' : rejected ? 'Contactá al responsable del hotel para revisar tu acceso.' : 'Con correo confirmado, solicitá acceso al hotel. El responsable asignará los permisos.'}</p>${membership ? `<p class="badge">Estado: ${esc(membershipStatusLabels[membership.status]||membership.status)} · rol solicitado: ${esc(roleText(membership.role))}</p>` : `<form id="requestForm"><div class="field"><label for="hotelSlug">Código del hotel</label><input id="hotelSlug" class="input" required value="hotel-demo" autocomplete="off"><small class="muted">Para la prueba inicial usá: hotel-demo</small></div><div class="field"><label for="role">Acceso solicitado</label><select id="role" class="input"><option value="technician">Técnico</option><option value="staff">Personal operativo</option><option value="supervisor">Supervisor (requiere aprobación)</option></select><small class="muted">El responsable del hotel valida los accesos de supervisor.</small></div><button class="btn primary">Solicitar acceso</button></form>`}<div class="actions"><button class="btn quiet" id="logout2">Salir</button></div></section>`;
+    const conflictMessage=membershipConflict?`<div class="membership-warning"><b>Esta cuenta ya tiene un acceso activo</b><span>La aplicación no pudo recuperar el hotel vinculado. No solicites otra membresía: volvé a cargar el acceso o cerrá sesión e ingresá con la cuenta autorizada.</span></div>`:'';
+    const retryButton=!membership||membershipConflict?`<button class="btn" id="retryMembership">${membershipConflict?'Actualizar acceso':'Ya tengo acceso · actualizar'}</button>`:'';
+    root.innerHTML = `<section class="panel auth"><h1>${membershipConflict?'Acceso ya existente':waiting ? 'Acceso pendiente' : rejected ? 'Acceso sin habilitar' : 'Ingresar al hotel'}</h1><p>${membershipConflict?'':waiting ? 'El responsable del hotel debe aprobar el acceso solicitado.' : rejected ? 'Contactá al responsable del hotel para revisar tu acceso.' : 'Con correo confirmado, solicitá acceso al hotel. El responsable asignará los permisos.'}</p>${conflictMessage}${retryButton}${membership ? `<p class="badge">Estado: ${esc(membershipStatusLabels[membership.status]||membership.status)} · rol solicitado: ${esc(roleText(membership.role))}</p>` : membershipConflict?'':`<form id="requestForm"><div class="field"><label for="hotelSlug">Código del hotel</label><input id="hotelSlug" class="input" required value="hotel-demo" autocomplete="off"><small class="muted">Para la prueba inicial usá: hotel-demo</small></div><div class="field"><label for="role">Acceso solicitado</label><select id="role" class="input"><option value="technician">Técnico</option><option value="staff">Personal operativo</option><option value="supervisor">Supervisor (requiere aprobación)</option></select><small class="muted">El responsable del hotel valida los accesos de supervisor.</small></div><button class="btn primary">Solicitar acceso</button></form>`}<div class="actions"><button class="btn quiet" id="logout2">Salir</button></div></section>`;
     $('#logout').onclick = signOut; $('#logout2').onclick = signOut;
+    $('#retryMembership')?.addEventListener('click',async e=>{e.currentTarget.disabled=true;try{await acceptSession(user);if(membershipConflict){showMembershipGate();toast('La cuenta tiene un acceso activo, pero no pudimos abrir el hotel. Cerrá sesión y volvé a ingresar.');}else if(!membership||membership.status!=='active')toast('No encontramos un acceso activo para esta cuenta. Verificá que hayas ingresado con el correo autorizado.');}catch(err){fail(err,'No se pudo recuperar el acceso del hotel.');e.currentTarget.disabled=false;}});
     $('#requestForm')?.addEventListener('submit', async e => { e.preventDefault(); const btn = e.submitter; btn.disabled = true;
       try { const {error} = await sb.rpc('request_hotel_membership_by_slug',{_hotel_slug:$('#hotelSlug').value.trim(),_requested_role:$('#role').value}); if (error) throw error; toast('Solicitud de acceso registrada'); await acceptSession(user); }
-      catch (err) { fail(err,'No se pudo solicitar acceso.'); btn.disabled = false; }
+      catch (err) {
+        if(/active membership already exists/i.test(err?.message||'')){
+          membershipConflict=true;
+          try{await acceptSession(user);if(membershipConflict)showMembershipGate();}
+          catch(refreshError){console.error(refreshError);showMembershipGate();}
+          return;
+        }
+        fail(err,'No se pudo solicitar acceso.'); btn.disabled = false;
+      }
     });
   }
   async function loadWorkspace() {
@@ -225,14 +240,15 @@
     $('#statusForm')?.addEventListener('submit',async e=>{e.preventDefault();await changeAssetStatus(x.id,e.currentTarget.elements.status.value,e.submitter,true);});
     window.dispatchEvent(new Event('dubiot:render'));
   }
-  async function signOut(){await sb.auth.signOut();user=null;membership=null;hotel=null;assets=[];showAuth();}
+  async function signOut(){await sb.auth.signOut();user=null;membership=null;hotel=null;membershipConflict=false;assets=[];showAuth();}
   async function start(){
     showLoading();
     if(!sb){root.innerHTML='<section class="panel auth"><h1>Configuración pendiente</h1><p>No se encontró la URL o la clave publicable de Supabase. Revisá <code>supabase-config.js</code>.</p></section>';return;}
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./beta-sw.js').then(reg=>reg.update()).catch(()=>{});
     const {data,error}=await sb.auth.getSession();if(error)throw error;
-    sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return;}if(session?.user)setTimeout(()=>acceptSession(session.user).catch(e=>{fail(e,'No se pudieron cargar los datos del hotel.');showAuth();}),0);else{user=null;membership=null;hotel=null;showAuth();}});
+    sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return;}if(session?.user)setTimeout(()=>acceptSession(session.user).catch(e=>{fail(e,'No se pudieron cargar los datos del hotel.');showAuth();}),0);else{user=null;membership=null;hotel=null;membershipConflict=false;showAuth();}});
     if(location.hash.includes('type=recovery'))showPasswordRecovery();else if(data.session?.user)await acceptSession(data.session.user);else showAuth();
   }
   start().catch(e=>{fail(e,'No se pudo conectar con Supabase.');root.innerHTML=`<section class="panel auth"><h1>No se pudo conectar</h1><p>${esc(e.message||'Revisá la conexión y la clave publicable.')}</p><button class="btn" onclick="location.reload()">Reintentar</button></section>`;});
 })();
+
