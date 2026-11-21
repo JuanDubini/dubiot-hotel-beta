@@ -129,11 +129,19 @@ body[data-app-mode="field"]:has(.field-layout) .top {
 }
 
 @media (min-width: 720px) {
-  .field-layout:has(> .my-work-orders), .field-tools:has(.my-work-orders) {
-    grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+  .field-layout:has(> .my-work-orders), .field-tools:has(> .my-work-orders) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
-  .field-layout > .field-tools { grid-column: 1 / -1; }
+  .field-layout:not(:has(.my-work-orders)) .panel:has(> #dailyCheckForm) {
+    max-width: 720px;
+  }
+  .field-layout #dailyCheckForm > button {
+    justify-self: end;
+  }
+  .field-layout #dailyCheckForm > textarea {
+    min-height: 64px;
+  }
   .field-assets-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .field-banner { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; }
   .field-banner > b, .field-banner > span { grid-column: 1; }
@@ -142,4 +150,14 @@ body[data-app-mode="field"]:has(.field-layout) .top {
 
 @media (min-width: 1120px) {
   .field-assets-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+  .field-layout #dailyCheckForm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 14px;
+  }
+  .field-layout #dailyCheckForm > * { grid-column: 1 / -1; }
+  .field-layout #dailyCheckForm > label[for="checkEquipment"] { grid-area: 1 / 1; }
+  .field-layout #dailyCheckForm > #checkEquipment { grid-area: 2 / 1; }
+  .field-layout #dailyCheckForm > label[for="checkName"] { grid-area: 1 / 2; }
+  .field-layout #dailyCheckForm > #checkName { grid-area: 2 / 2; }
 }
