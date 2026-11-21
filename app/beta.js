@@ -6,7 +6,7 @@
   const sb = cfg.enabled && window.supabase?.createClient && cfg.url && cfg.publishableKey
     ? window.supabase.createClient(cfg.url, cfg.publishableKey) : null;
   let user = null, profile = null, membership = null, hotel = null;
-  let assets = [], members = [], activeAsset = null, toastTimer, maintenanceTasks = [], openIssues = [], dailyChecks = [], activeView = document.body.dataset.appMode === 'field' ? 'field' : 'dashboard', lastPanelView='assets';
+  let assets = [], members = [], activeAsset = null, toastTimer, presenceTimer=null, maintenanceTasks = [], openIssues = [], dailyChecks = [], activeView = document.body.dataset.appMode === 'field' ? 'field' : 'dashboard', lastPanelView='assets';
   const appMode = document.body.dataset.appMode || 'field';
   const $ = (sel, scope = document) => scope.querySelector(sel);
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -21,6 +21,14 @@
   const canManageTeam = () => membership?.role === 'hotel_manager';
   const toast = text => { toastBox.textContent = text; toastBox.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastBox.classList.remove('show'), 3200); };
   const fail = (error, fallback = 'No se pudo completar la operación.') => { console.error(error); toast(error?.message || fallback); };
+  window.DubIoTApp = {
+    context: () => ({sb,user,profile,membership,hotel,assets,members,dailyChecks,maintenanceTasks,openIssues,activeAsset,activeView,mode:appMode,canManage,canManageTeam}),
+    canManage,canManageTeam,toast,fail,
+    load: loadWorkspace,
+    render: () => { renderHome(); },
+    setView: view => { activeView=view; renderHome(); },
+    showAsset
+  };
 
   function shell(title, subtitle, actions = '') {
     return `<div class="row mobile-stack"><div><p class="muted">DubIoT · ${esc(hotel?.name || 'Hotel Demo')}</p><h1>${title}</h1><p>${subtitle}</p></div><div class="actions">${actions}</div></div>`;
@@ -28,7 +36,7 @@
   function showLoading(){root.innerHTML=`<section class="loading-view"><div class="loading-line"></div><h1>${appMode==='panel'?'Preparando el panel de PC':'Preparando la app de campo'}</h1><p>Conectando con el hotel y sincronizando la información…</p><div class="loading-cards"><i></i><i></i><i></i></div></section>`;}
   function showAuth(message = '') {
     sessionBox.innerHTML = '';
-    root.innerHTML = `<section class="panel auth"><img src="dubiot-logo-canal.svg" width="54" alt="" style="border-radius:12px;background:white;margin-bottom:14px"><h1>Acceso del equipo</h1><p>Iniciá sesión para consultar activos y registrar su historial compartido.</p>${message ? `<div class="notice">${esc(message)}</div>` : ''}<div class="auth-switch"><button class="btn primary" id="showLogin">Ingresar</button><button class="btn" id="showSignup">Crear cuenta</button></div><form id="authForm"><div id="nameField" class="field" hidden><label for="fullName">Nombre y apellido</label><input id="fullName" class="input" autocomplete="name"></div><div class="field"><label for="email">Correo electrónico</label><input id="email" class="input" type="email" required autocomplete="email"></div><div class="field"><label for="password">Contraseña</label><input id="password" class="input" type="password" required minlength="8" autocomplete="current-password"></div><button class="btn primary" id="authSubmit" type="submit">Ingresar</button><button class="btn quiet" id="resendConfirmation" type="button">Reenviar confirmación de correo</button><p class="muted" id="authNotice">La cuenta y los registros se guardan en el proyecto Supabase de DubIoT.</p></form></section>`;
+    root.innerHTML = `<section class="panel auth"><img src="dubiot-logo-canal.svg" width="54" alt="" style="border-radius:12px;background:white;margin-bottom:14px"><h1>Acceso del equipo</h1><p>Iniciá sesión para consultar activos y registrar su historial compartido.</p>${message ? `<div class="notice">${esc(message)}</div>` : ''}<div class="auth-switch"><button class="btn primary" id="showLogin">Ingresar</button><button class="btn" id="showSignup">Crear cuenta</button></div><form id="authForm"><div id="nameField" class="field" hidden><label for="fullName">Nombre y apellido</label><input id="fullName" class="input" autocomplete="name"></div><div class="field"><label for="email">Correo electrónico</label><input id="email" class="input" type="email" required autocomplete="email"></div><div class="field"><label for="password">Contraseña</label><input id="password" class="input" type="password" required minlength="8" autocomplete="current-password"></div><button class="btn primary" id="authSubmit" type="submit">Ingresar</button><button class="btn quiet" id="resendConfirmation" type="button">Reenviar confirmación de correo</button><button class="btn quiet" id="forgotPassword" type="button">Olvidé mi contraseña</button><p class="muted" id="authNotice">La cuenta y los registros se guardan en el proyecto Supabase de DubIoT.</p></form></section>`;
     let mode = 'login'; $('#nameField').style.display = 'none';
     const setMode = next => { mode = next; $('#nameField').hidden = next !== 'signup'; $('#nameField').style.display = next === 'signup' ? 'grid' : 'none'; $('#fullName').required = next === 'signup'; $('#password').autocomplete = next === 'signup' ? 'new-password' : 'current-password'; $('#authSubmit').textContent = next === 'signup' ? 'Crear cuenta' : 'Ingresar'; $('#showLogin').classList.toggle('primary', next === 'login'); $('#showSignup').classList.toggle('primary', next === 'signup'); };
     $('#showLogin').onclick = () => setMode('login'); $('#showSignup').onclick = () => setMode('signup');
@@ -43,6 +51,13 @@
       } catch (err) { fail(err,'No se pudo reenviar la confirmación.'); }
       finally { button.disabled = false; }
     };
+    $('#forgotPassword').onclick=async()=>{
+      const email=$('#email').value.trim();if(!email){$('#authNotice').textContent='Ingresá tu correo para solicitar un enlace de recuperación.';$('#email').focus();return;}
+      const button=$('#forgotPassword');button.disabled=true;
+      try{const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+window.location.pathname});if(error)throw error;$('#authNotice').textContent='Si el correo corresponde a una cuenta, Supabase enviará un enlace para crear una contraseña nueva. Revisá también spam y correo no deseado.';}
+      catch(err){fail(err,'No se pudo solicitar la recuperación.');}
+      finally{button.disabled=false;}
+    };
     $('#authForm').onsubmit = async e => { e.preventDefault(); const email = $('#email').value.trim(), password = $('#password').value; $('#authSubmit').disabled = true;
       try {
         if (mode === 'signup') {
@@ -55,6 +70,7 @@
   }
   async function acceptSession(authUser) {
     user = authUser;
+    recordPresence();
     const [{data:p,error:pe},{data:m,error:me}] = await Promise.all([
       sb.from('profiles').select('id,full_name').eq('id',user.id).maybeSingle(),
       sb.from('hotel_memberships').select('id,hotel_id,role,status').eq('user_id',user.id).order('requested_at',{ascending:false}).limit(1).maybeSingle()
@@ -65,6 +81,16 @@
     const {data:h,error:he} = await sb.from('hotels').select('id,name,slug,timezone').eq('id',membership.hotel_id).maybeSingle();
     if (he) throw he; if (!h) { membership = null; return showMembershipGate(); }
     hotel = h; await loadWorkspace();
+  }
+  function recordPresence(){
+    if(!user||!sb)return;
+    sb.rpc('record_my_presence').then(({error})=>{if(error&&!/record_my_presence|schema cache|does not exist/i.test(error.message||''))console.warn('No se pudo actualizar actividad',error);}).catch(()=>{});
+    if(presenceTimer===null)presenceTimer=setInterval(()=>{if(document.visibilityState==='visible')recordPresence();},60000);
+  }
+  function showPasswordRecovery(){
+    sessionBox.innerHTML='';
+    root.innerHTML=`<section class="panel auth"><h1>Recuperar contraseña</h1><p>Elegí una contraseña nueva para tu cuenta de DubIoT.</p><form id="passwordRecoveryForm" class="field"><label for="newPassword">Nueva contraseña</label><input id="newPassword" class="input" type="password" minlength="8" autocomplete="new-password" required><button class="btn primary">Guardar contraseña</button></form></section>`;
+    $('#passwordRecoveryForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const {error}=await sb.auth.updateUser({password:$('#newPassword').value});if(error)throw error;await sb.auth.signOut();showAuth('Contraseña actualizada. Ya podés iniciar sesión con la nueva contraseña.');}catch(err){fail(err,'No se pudo actualizar la contraseña.');b.disabled=false;}};
   }
   function showMembershipGate() {
     const waiting = membership?.status === 'pending';
@@ -81,7 +107,7 @@
     const hid = hotel.id;
     const [eq, hist, tasks, issues, checks, msResult] = await Promise.all([
       sb.from('equipment').select('*').eq('hotel_id',hid).order('created_at',{ascending:false}),
-      sb.from('equipment_history').select('*').eq('hotel_id',hid).order('created_at',{ascending:false}),
+      sb.from('equipment_history').select('*').eq('hotel_id',hid).order('occurred_at',{ascending:false}),
       sb.from('maintenance_tasks').select('*').eq('hotel_id',hid).order('created_at',{ascending:false}),
       sb.from('issues').select('*').eq('hotel_id',hid).order('created_at',{ascending:false}),
       sb.from('daily_checks').select('*').eq('hotel_id',hid).order('checked_at',{ascending:false}),
@@ -90,7 +116,7 @@
     for (const result of [eq,hist,tasks,issues,checks,msResult]) if (result.error) throw result.error;
     const names = new Map((eq.data||[]).map(x=>[x.id,x.name]));
     const timeline = new Map();
-    for (const ev of hist.data||[]) { if (!timeline.has(ev.equipment_id)) timeline.set(ev.equipment_id,[]); timeline.get(ev.equipment_id).push({id:ev.id,sortAt:ev.created_at,at:new Date(ev.created_at).toLocaleString('es-AR',{dateStyle:'medium',timeStyle:'short'}),kind:eventLabels[ev.event_type]||ev.event_type,text:ev.title+(ev.details?` · ${ev.details}`:''),actor:ev.actor_id===user.id?(profile?.full_name||user.email):'Equipo técnico'}); }
+    for (const ev of hist.data||[]) { if (!timeline.has(ev.equipment_id)) timeline.set(ev.equipment_id,[]); const happenedAt=ev.occurred_at||ev.created_at; timeline.get(ev.equipment_id).push({id:ev.id,sortAt:happenedAt,at:new Date(happenedAt).toLocaleString('es-AR',{dateStyle:'medium',timeStyle:'short'}),kind:eventLabels[ev.event_type]||ev.event_type,text:ev.title+(ev.details?` · ${ev.details}`:''),actor:ev.actor_id===user.id?(profile?.full_name||user.email):'Equipo técnico',photo_paths:ev.photo_paths||[]}); }
     assets=(eq.data||[]).map(x=>({...x,code:`DB-${x.id.slice(0,8).toUpperCase()}`,qrCode:x.qr_code,name:x.name,model:x.model||'',serialNumber:x.serial_number||'',photo_path:x.photo_path,history:timeline.get(x.id)||[],updated:new Date(x.updated_at).toLocaleString('es-AR',{dateStyle:'medium',timeStyle:'short'})}));
     maintenanceTasks=tasks.data||[]; openIssues=issues.data||[]; dailyChecks=checks.data||[];
     window.betaTasks=maintenanceTasks.map(x=>({...x,equipment:names.get(x.equipment_id)||'—',assignee:x.assigned_to||'Sin asignar',due:x.due_date||'Sin fecha'}));
@@ -101,9 +127,9 @@
     const pmap=new Map(profs.map(x=>[x.id,x.full_name])); members=(ms||[]).map(x=>({...x,full_name:pmap.get(x.user_id)||'Usuario'}));
     sessionBox.innerHTML=`<span class="muted">${esc(profile?.full_name||user.email)} · ${esc(roleText(membership.role))}</span><button class="btn quiet" id="logout">Salir</button>`; $('#logout').onclick=signOut;
     if(location.hash.startsWith('#asset=')){const qr=decodeURIComponent(location.hash.slice(7));const found=assets.find(x=>x.qr_code===qr||x.id===qr);if(found)return showAsset(found);}
-    renderHome();
+    renderHome(); window.dispatchEvent(new Event('dubiot:render'));
   }
-  function renderFieldApp(){root.innerHTML=`${shell('App de campo','Alta de activos, controles e historial QR para el equipo de mantenimiento.','<a class="btn" href="./panel.html">Panel de PC ↗</a><button class="btn primary" id="newAsset">＋ Dar de alta un activo</button>')}<div class="field-banner"><b>¿Ya tiene QR?</b><span>Usá la cámara del teléfono para escanearlo y abrir su historial.</span></div><div class="field-layout"><section class="panel"><div class="row"><div><h2>Cargar control diario</h2><p>El responsable lo revisa desde el panel de PC.</p></div></div><form id="dailyCheckForm" class="field"><label for="checkEquipment">Activo</label><select class="input" id="checkEquipment" name="equipment_id" required><option value="">Elegir activo</option>${assets.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.location)}</option>`).join('')}</select><label for="checkName">Tipo de control</label><input id="checkName" class="input" name="check_name" required maxlength="120" placeholder="Ej.: Control diario de caldera"><label for="checkResult">Resultado</label><select id="checkResult" class="input" name="result"><option value="ok">Correcto</option><option value="observation">Con observación</option><option value="failure">Falla encontrada</option><option value="not_done">No realizado</option></select><label for="checkNotes">Detalle / mediciones</label><textarea id="checkNotes" class="input" name="notes" maxlength="2000" placeholder="Lectura, estado encontrado, trabajo requerido…"></textarea><button class="btn primary">Enviar control a verificación</button></form></section><section><div class="row field-assets-head"><div><h2>Activos del hotel</h2><p>${assets.length} equipos · abrí una ficha o escaneá su QR.</p></div><input id="search" class="input" placeholder="Buscar equipo o ubicación"></div><div class="grid field-assets-grid" id="assetGrid"></div></section></div>`;$('#newAsset').onclick=showNewAsset;$('#search').oninput=filterAssets;$('#dailyCheckForm').onsubmit=saveDailyCheck;drawAssets();}
+  function renderFieldApp(){root.innerHTML=`${shell('App de campo','Alta de activos, controles e historial QR para el equipo de mantenimiento.','<a class="btn" href="./panel.html">Panel de PC ↗</a><button class="btn primary" id="newAsset">＋ Dar de alta un activo</button>')}<div class="field-banner"><b>¿Ya tiene QR?</b><span>Usá la cámara del teléfono para escanearlo y abrir su historial.</span></div><div class="field-layout"><section class="panel"><div class="row"><div><h2>Cargar control diario</h2><p>El responsable lo revisa desde el panel de PC.</p></div></div><form id="dailyCheckForm" class="field"><label for="checkEquipment">Activo</label><select class="input" id="checkEquipment" name="equipment_id" required><option value="">Elegir activo</option>${assets.map(a=>`<option value="${esc(a.id)}">${esc(a.name)} · ${esc(a.location)}</option>`).join('')}</select><label for="checkName">Tipo de control</label><input id="checkName" class="input" name="check_name" required maxlength="120" placeholder="Ej.: Control diario de caldera"><label for="checkResult">Resultado</label><select id="checkResult" class="input" name="result"><option value="ok">Correcto</option><option value="observation">Con observación</option><option value="failure">Falla encontrada</option><option value="not_done">No realizado</option></select><label for="checkNotes">Detalle / mediciones</label><textarea id="checkNotes" class="input" name="notes" maxlength="2000" placeholder="Lectura, estado encontrado, trabajo requerido…"></textarea><button class="btn primary">Enviar control a verificación</button></form></section><section><div class="row field-assets-head"><div><h2>Activos del hotel</h2><p>${assets.length} equipos · abrí una ficha o escaneá su QR.</p></div><input id="search" class="input" placeholder="Buscar equipo o ubicación"></div><div class="grid field-assets-grid" id="assetGrid"></div></section></div>`;$('#newAsset').onclick=showNewAsset;$('#search').oninput=filterAssets;$('#dailyCheckForm').onsubmit=saveDailyCheck;drawAssets();window.dispatchEvent(new Event('dubiot:render'));}
   async function saveDailyCheck(e){e.preventDefault();const f=e.currentTarget,b=e.submitter;const v=Object.fromEntries(new FormData(f));b.disabled=true;try{const {error}=await sb.from('daily_checks').insert({hotel_id:hotel.id,equipment_id:v.equipment_id,check_name:v.check_name.trim(),result:v.result,notes:v.notes.trim(),checked_by:user.id});if(error)throw error;toast('Control enviado al panel de PC para verificación');f.reset();await loadWorkspace();}catch(err){fail(err,'No se pudo guardar el control diario.');b.disabled=false;}}
   async function reviewDailyCheck(id,decision,button){button.disabled=true;try{const {error}=await sb.from('daily_checks').update({verification_status:decision}).eq('id',id).eq('hotel_id',hotel.id).eq('verification_status','pending');if(error)throw error;toast(decision==='verified'?'Control aprobado':'Control devuelto para corregir');await loadWorkspace();activeView='maintenance';}catch(error){fail(error,'No se pudo actualizar la verificación.');button.disabled=false;}}
   async function changeAssetStatus(id,nextStatus,button,returnToDetail=false){const asset=assets.find(a=>a.id===id);if(!asset||asset.status===nextStatus)return;if(!canManage())return;let reason='';if(['critical','out_of_service'].includes(nextStatus)){reason=window.prompt(`Motivo obligatorio para cambiar ${asset.name} a «${statusText(nextStatus)}»:`)?.trim()||'';if(!reason){toast('Indicá el motivo para aplicar este estado.');renderHome();return;}}button&&(button.disabled=true);try{const {error}=await sb.from('equipment').update({status:nextStatus,status_reason:reason}).eq('id',id).eq('hotel_id',hotel.id);if(error)throw error;toast(`Estado actualizado: ${statusText(nextStatus)}`);await loadWorkspace();if(returnToDetail&&!location.hash.startsWith('#asset='))await showAsset(assets.find(a=>a.id===id));}catch(err){fail(err,'No se pudo cambiar el estado. Aplicá la migración 006 y volvé a intentar.');if(button)button.disabled=false;}}
@@ -123,7 +149,7 @@
     root.innerHTML=nav+`<main class="pc-main">${content}</main>`;
     root.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{activeView=b.dataset.tab;renderHome();});root.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>{activeView=b.dataset.goto;renderHome();});$('#newAsset')?.addEventListener('click',showNewAsset);$('#exportCsv')?.addEventListener('click',()=>activeView==='maintenance'?exportChecksCsv():exportAssetsCsv());root.querySelectorAll('[data-verify]').forEach(b=>b.onclick=()=>reviewDailyCheck(b.dataset.verify,'verified',b));root.querySelectorAll('[data-reject-check]').forEach(b=>b.onclick=()=>reviewDailyCheck(b.dataset.rejectCheck,'rejected',b));
     if(activeView==='assets'){ $('#search').oninput=filterAssets;$('#statusFilter').onchange=filterAssets;drawAssetRows(); }
-    if(canManageTeam())drawMembers();
+    if(canManageTeam())drawMembers(); window.dispatchEvent(new Event('dubiot:render'));
   }
   function recentActivity(){const rows=[];for(const a of assets)for(const h of a.history){let subtitle=h.text;const change=subtitle.match(/([a-z_]+)\s*→\s*([a-z_]+)/);if(change)subtitle=subtitle.replace(change[0],`${statusText(change[1])} → ${statusText(change[2])}`);rows.push({title:h.kind,asset:a.name,subtitle,date:h.at,color:/repar|incidencia|falla/i.test(h.kind+' '+h.text)?'red':/inspecci|control/i.test(h.kind)?'orange':'teal',sort:new Date(h.sortAt).getTime()});}for(const c of dailyChecks){const a=assets.find(x=>x.id===c.equipment_id);rows.push({title:c.check_name,asset:a?.name||'Control diario',subtitle:c.notes||{ok:'Correcto',observation:'Con observación',failure:'Falla encontrada',not_done:'No realizado'}[c.result]||c.result,date:dateTime(c.checked_at),color:c.result==='failure'?'red':c.result==='observation'?'orange':'teal',sort:new Date(c.checked_at).getTime()});}return rows.sort((a,b)=>b.sort-a.sort);}
   function csvCell(value){return '"'+String(value??'').replace(/"/g,'""')+'"';}
@@ -197,6 +223,7 @@
     $('#editAssetForm')?.addEventListener('submit',async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;const f=e.currentTarget,v=Object.fromEntries(new FormData(f));let path=null;const file=f.elements.photo.files[0];try{if(file){path=`${hotel.id}/${x.id}/${crypto.randomUUID()}.${file.type==='image/png'?'png':file.type==='image/webp'?'webp':'jpg'}`;const {error}=await sb.storage.from('equipment-photos').upload(path,file,{contentType:file.type,upsert:false});if(error)throw error;}const changes={model:v.model.trim(),serial_number:v.serial_number.trim()||null};if(!technician)Object.assign(changes,{name:v.name.trim(),category:v.category.trim(),location:v.location.trim(),notes:v.notes.trim()});if(path)changes.photo_path=path;const {error}=await sb.from('equipment').update(changes).eq('id',x.id).eq('hotel_id',hotel.id);if(error)throw error;toast('Datos del activo actualizados');await loadWorkspace();showAsset(assets.find(a=>a.id===x.id));}catch(err){if(path)await sb.storage.from('equipment-photos').remove([path]).catch(()=>{});fail(err,'No se pudieron guardar los cambios.');b.disabled=false;}});
     $('#eventForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;const v=Object.fromEntries(new FormData(e.currentTarget)),[event_type,preset]=v.phase.split('|');try{const {error}=await sb.from('equipment_history').insert({hotel_id:hotel.id,equipment_id:x.id,event_type,title:`${preset}: ${v.title.trim()}`.slice(0,160),details:v.details.trim(),actor_id:user.id});if(error)throw error;if(preset==='Devolución al servicio'&&canManage()){const {error:se}=await sb.from('equipment').update({status:'operational'}).eq('id',x.id).eq('hotel_id',hotel.id);if(se)throw se;}toast('Hito guardado en el historial compartido');await loadWorkspace();showAsset(assets.find(a=>a.id===x.id));}catch(err){fail(err);b.disabled=false;}};
     $('#statusForm')?.addEventListener('submit',async e=>{e.preventDefault();await changeAssetStatus(x.id,e.currentTarget.elements.status.value,e.submitter,true);});
+    window.dispatchEvent(new Event('dubiot:render'));
   }
   async function signOut(){await sb.auth.signOut();user=null;membership=null;hotel=null;assets=[];showAuth();}
   async function start(){
@@ -204,8 +231,8 @@
     if(!sb){root.innerHTML='<section class="panel auth"><h1>Configuración pendiente</h1><p>No se encontró la URL o la clave publicable de Supabase. Revisá <code>supabase-config.js</code>.</p></section>';return;}
     if('serviceWorker' in navigator) navigator.serviceWorker.register('./beta-sw.js').then(reg=>reg.update()).catch(()=>{});
     const {data,error}=await sb.auth.getSession();if(error)throw error;
-    sb.auth.onAuthStateChange((_event,session)=>{if(session?.user)setTimeout(()=>acceptSession(session.user).catch(e=>{fail(e,'No se pudieron cargar los datos del hotel.');showAuth();}),0);else{user=null;membership=null;hotel=null;showAuth();}});
-    if(data.session?.user)await acceptSession(data.session.user);else showAuth();
+    sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){showPasswordRecovery();return;}if(session?.user)setTimeout(()=>acceptSession(session.user).catch(e=>{fail(e,'No se pudieron cargar los datos del hotel.');showAuth();}),0);else{user=null;membership=null;hotel=null;showAuth();}});
+    if(location.hash.includes('type=recovery'))showPasswordRecovery();else if(data.session?.user)await acceptSession(data.session.user);else showAuth();
   }
   start().catch(e=>{fail(e,'No se pudo conectar con Supabase.');root.innerHTML=`<section class="panel auth"><h1>No se pudo conectar</h1><p>${esc(e.message||'Revisá la conexión y la clave publicable.')}</p><button class="btn" onclick="location.reload()">Reintentar</button></section>`;});
 })();

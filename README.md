@@ -3,8 +3,9 @@
 El paquete contiene una **demo de interfaz**, una beta conectada para activos y migraciones SQL para la base multi-hotel. No contiene claves secretas ni publica una web por sí solo.
 
 ## Incluye
-- Migraciones PostgreSQL `001` a `005` aplicadas manualmente en el proyecto beta; la `006` contiene correcciones de la auditoría y requiere aplicación antes de activar los nuevos permisos y estados.
+- Migraciones PostgreSQL originales de la beta, con `006` aplicada; `007` habilita órdenes de trabajo y `008` agrega la consola global de administración con MFA.
 - Beta conectada de activos e historial QR en `app/beta.html`.
+- Panel de PC en `app/panel.html` y consola global de DubIoT en `app/admin.html`.
 - Migración adicional `004_equipment_photos_storage.sql` para fotos privadas del activo y permisos de revisión de personal.
 - Esquema de hoteles, perfiles, membresías, activos, mantenimiento, incidencias, controles diarios, auditoría e historial QR.
 - Políticas Row Level Security (RLS) para separar datos por hotel.
@@ -31,6 +32,8 @@ Las migraciones `001`, `002` y `003` se ejecutaron en el proyecto beta desde el 
 5. `app/beta.html` usa la URL y clave publicable configuradas en `app/supabase-config.js`. Nunca colocar la clave `service_role` / `secret` en el navegador.
 
 La beta conectada usa Supabase Auth y sincroniza activos, historial, controles, tareas e incidencias. La aplicación de campo está en `app/beta.html`; el panel de PC, en `app/panel.html`.
+
+La consola global, separada del panel de cada hotel, está en `app/admin.html`. La migración `008_platform_admin_console.sql` debe estar aplicada y el administrador debe usar MFA. Nunca se muestran contraseñas: el acceso se restablece mediante un enlace temporal al correo.
 
 ## Beta conectada de activos
 
