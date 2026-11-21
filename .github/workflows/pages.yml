@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -38,6 +39,23 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
+          name: github-pages-${{ github.run_attempt }}
+      - name: Esperar el paquete de Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PAGES_ARTIFACT: github-pages-${{ github.run_attempt }}
+        run: |
+          for attempt in {1..12}; do
+            if count=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?name=$PAGES_ARTIFACT" \
+              --jq '[.artifacts[] | select(.expired == false)] | length') && [[ "$count" == 1 ]]; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::GitHub Pages no encontró el paquete de esta ejecución."
+          exit 1
       - name: Publicar sitio
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
