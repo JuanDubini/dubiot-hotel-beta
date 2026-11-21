@@ -82,6 +82,10 @@
     profile = p;
     const memberships=allMemberships||[];
     const activeMemberships=memberships.filter(m=>m.status==='active');
+    if (!profile && !memberships.length && authUser.email_confirmed_at) {
+      const {data: assurance} = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (assurance?.currentLevel === 'aal1') return showAccountVerification();
+    }
     const selectedHotel=localStorage.getItem(`dubiot-selected-hotel-${user.id}`);
     membership=activeMemberships.find(m=>m.hotel_id===selectedHotel)||activeMemberships[0]||memberships[0]||null;
     // Confirmed accounts without active access enter the public demo beta as technicians.
@@ -112,6 +116,19 @@
     root.innerHTML=`<section class="panel auth"><h1>Recuperar contraseña</h1><p>Elegí una contraseña nueva para tu cuenta de DubIoT.</p><form id="passwordRecoveryForm" class="field"><label for="newPassword">Nueva contraseña</label><div class="password-control"><input id="newPassword" class="input" type="password" minlength="8" autocomplete="new-password" required><button class="btn" id="toggleNewPassword" type="button" aria-label="Mostrar contraseña" aria-pressed="false">Mostrar</button></div><button class="btn primary">Guardar contraseña</button></form></section>`;
     bindPasswordToggle('#newPassword', '#toggleNewPassword');
     $('#passwordRecoveryForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const {error}=await sb.auth.updateUser({password:$('#newPassword').value});if(error)throw error;await sb.auth.signOut();showAuth('Contraseña actualizada. Ya podés iniciar sesión con la nueva contraseña.');}catch(err){fail(err,'No se pudo actualizar la contraseña.');b.disabled=false;}};
+  }
+  function showAccountVerification() {
+    root.classList.add('auth-layout');
+    sessionBox.innerHTML = '<button class="btn quiet" id="logout">Cerrar sesión</button>';
+    $('#logout').onclick = signOut;
+    root.innerHTML = `<section class="panel auth">
+      <div class="auth-heading">
+        <h1>Verificá tu cuenta</h1>
+        <p>La sesión está abierta, pero la app no pudo leer el perfil del hotel. Si usás la cuenta administradora, completá la verificación en dos pasos en el panel de administración.</p>
+      </div>
+      <div class="actions"><a class="btn primary" href="./admin.html">Abrir administración</a><button class="btn" id="retryAccount" type="button">Volver a comprobar</button></div>
+    </section>`;
+    $('#retryAccount').onclick = () => location.reload();
   }
   function showEmailConfirmation(email) {
     root.classList.add('auth-layout');
@@ -173,23 +190,63 @@
   function showMembershipGate() {
     root.classList.add('auth-layout');
     const waiting = membership?.status === 'pending';
-    const rejected = membership?.status === 'rejected' || membership?.status === 'suspended';
-    sessionBox.innerHTML = `<button class="btn quiet" id="logout">Cerrar sesión</button>`;
-    const conflictMessage=membershipConflict?`<div class="membership-warning"><b>Esta cuenta ya tiene un acceso activo</b><span>La aplicación no pudo recuperar el hotel vinculado. No solicites otra membresía: volvé a cargar el acceso o cerrá sesión e ingresá con la cuenta autorizada.</span></div>`:'';
-    const retryButton=!membership||membershipConflict?`<button class="btn" id="retryMembership">${membershipConflict?'Actualizar acceso':'Ya tengo acceso · actualizar'}</button>`:'';
-    root.innerHTML = `<section class="panel auth"><h1>${membershipConflict?'Acceso ya existente':waiting ? 'Acceso pendiente' : rejected ? 'Acceso sin habilitar' : 'Ingresar al hotel'}</h1><p>${membershipConflict?'':waiting ? 'El responsable del hotel debe aprobar el acceso solicitado.' : rejected ? 'Contactá al responsable del hotel para revisar tu acceso.' : 'Con correo confirmado, solicitá acceso al hotel. El responsable asignará los permisos.'}</p>${conflictMessage}${retryButton}${membership ? `<p class="badge">Estado: ${esc(membershipStatusLabels[membership.status]||membership.status)} · rol solicitado: ${esc(roleText(membership.role))}</p>` : membershipConflict?'':`<form id="requestForm"><div class="field"><label for="hotelSlug">Código del hotel</label><input id="hotelSlug" class="input" required value="hotel-demo" autocomplete="off"><small class="muted">Para la prueba inicial usá: hotel-demo</small></div><div class="field"><label for="role">Acceso solicitado</label><select id="role" class="input"><option value="technician">Técnico</option><option value="staff">Personal operativo</option><option value="supervisor">Supervisor (requiere aprobación)</option></select><small class="muted">El responsable del hotel valida los accesos de supervisor.</small></div><button class="btn primary">Solicitar acceso</button></form>`}<div class="actions"><button class="btn quiet" id="logout2">Salir</button></div></section>`;
-    $('#logout').onclick = signOut; $('#logout2').onclick = signOut;
-    $('#retryMembership')?.addEventListener('click',async e=>{e.currentTarget.disabled=true;try{await acceptSession(user);if(membershipConflict){showMembershipGate();toast('La cuenta tiene un acceso activo, pero no pudimos abrir el hotel. Cerrá sesión y volvé a ingresar.');}else if(!membership||membership.status!=='active')toast('No encontramos un acceso activo para esta cuenta. Verificá que hayas ingresado con el correo autorizado.');}catch(err){fail(err,'No se pudo recuperar el acceso del hotel.');e.currentTarget.disabled=false;}});
-    $('#requestForm')?.addEventListener('submit', async e => { e.preventDefault(); const btn = e.submitter; btn.disabled = true;
-      try { const {error} = await sb.rpc('request_hotel_membership_by_slug',{_hotel_slug:$('#hotelSlug').value.trim(),_requested_role:$('#role').value}); if (error) throw error; toast('Solicitud de acceso registrada'); await acceptSession(user); }
-      catch (err) {
-        if(/active membership already exists/i.test(err?.message||'')){
-          membershipConflict=true;
-          try{await acceptSession(user);if(membershipConflict)showMembershipGate();}
-          catch(refreshError){console.error(refreshError);showMembershipGate();}
-          return;
-        }
-        fail(err,'No se pudo solicitar acceso.'); btn.disabled = false;
+    const blocked = ['rejected','suspended'].includes(membership?.status);
+    const canRequest = !membership && !membershipConflict;
+    const title = membershipConflict ? 'No pudimos abrir tu hotel' : waiting ? 'Acceso pendiente' : blocked ? 'Acceso sin habilitar' : 'Ingresar al hotel';
+    const description = membershipConflict ? 'Encontramos un acceso, pero no pudimos cargar el hotel.' : waiting ? 'El responsable del hotel debe aprobar tu solicitud.' : blocked ? 'Contactá al responsable del hotel para revisar tu acceso.' : 'Indicá el código de tu hotel para solicitar acceso.';
+    sessionBox.innerHTML = '<button class="btn quiet" id="logout">Cerrar sesión</button>';
+    $('#logout').onclick = signOut;
+    root.innerHTML = `<section class="panel auth" aria-labelledby="hotelAccessTitle">
+      <div class="auth-heading" style="text-align:center">
+        <h1 id="hotelAccessTitle">${title}</h1><p>${description}</p>
+      </div>
+      ${canRequest ? `<form id="requestForm">
+        <div class="field"><label for="hotelSlug">Código del hotel</label><input id="hotelSlug" class="input" required value="hotel-demo" autocomplete="off"></div>
+        <div class="field"><label for="role">Rol solicitado</label><select id="role" class="input"><option value="technician">Técnico</option><option value="staff">Personal operativo</option><option value="supervisor">Supervisor</option></select></div>
+        <button class="btn primary auth-submit" type="submit">Solicitar acceso</button>
+      </form>` : ''}
+      <div class="auth-help"><button class="auth-link" id="retryMembership" type="button">Volver a comprobar el acceso</button></div>
+      <p class="auth-notice muted" id="hotelAccessStatus" role="status"></p>
+    </section>`;
+    const refreshAccess = async () => {
+      const {data, error} = await sb.auth.getUser();
+      if (error) throw error;
+      await acceptSession(data.user);
+    };
+    const report = message => {
+      const status = $('#hotelAccessStatus');
+      if (status) status.textContent = message;
+    };
+    $('#retryMembership').onclick = async ({currentTarget: button}) => {
+      button.disabled = true;
+      try {
+        await refreshAccess();
+        if (!membership) report('Todavía no podemos leer un acceso para esta cuenta.');
+      } catch (error) {
+        console.error(error);
+        report('No pudimos comprobar el acceso. Volvé a intentar.');
+      } finally {
+        button.disabled = false;
+      }
+    };
+    $('#requestForm')?.addEventListener('submit', async event => {
+      event.preventDefault();
+      const button = event.submitter;
+      button.disabled = true;
+      try {
+        const {error} = await sb.rpc('request_hotel_membership_by_slug',{
+          _hotel_slug: $('#hotelSlug').value.trim(),
+          _requested_role: $('#role').value
+        });
+        if (error && !/active membership already exists/i.test(error.message)) throw error;
+        await refreshAccess();
+        if (!membership) report('El servidor recibió el pedido, pero la app todavía no pudo leer el acceso.');
+      } catch (error) {
+        console.error(error);
+        if (/verified email/i.test(error.message)) return showEmailConfirmation(user.email);
+        report(/active hotel not found/i.test(error.message) ? 'No encontramos un hotel activo con ese código.' : 'No pudimos completar el acceso. Volvé a comprobarlo.');
+      } finally {
+        button.disabled = false;
       }
     });
   }
