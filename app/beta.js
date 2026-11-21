@@ -83,6 +83,14 @@
     const activeMemberships=memberships.filter(m=>m.status==='active');
     const selectedHotel=localStorage.getItem(`dubiot-selected-hotel-${user.id}`);
     membership=activeMemberships.find(m=>m.hotel_id===selectedHotel)||activeMemberships[0]||memberships[0]||null;
+    // Confirmed accounts without active access enter the public demo beta as technicians.
+    // The database RPC limits automatic membership to hotel-demo and preserves other hotels' approval rules.
+    if (!activeMemberships.length && !autoJoinAttempted && authUser.email_confirmed_at) {
+      const requestedRole=memberships.find(m=>m.status==='pending')?.role||'technician';
+      const {error:joinError}=await sb.rpc('request_hotel_membership_by_slug',{_hotel_slug:'hotel-demo',_requested_role:requestedRole});
+      if (!joinError) return acceptSession(authUser,true);
+      console.warn('No se pudo activar el acceso directo a la beta.',joinError);
+    }
     if (!membership || membership.status !== 'active') return showMembershipGate();
     const {data:h,error:he} = await sb.from('hotels').select('id,name,slug,timezone').eq('id',membership.hotel_id).maybeSingle();
     if (he) throw he; if (!h) { membershipConflict=true; return showMembershipGate(); }
