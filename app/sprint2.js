@@ -361,7 +361,9 @@
 
   async function saveControlOfflineAware(e){
     e.preventDefault();
-    const c=ctx(),f=e.currentTarget,b=e.submitter;
+    // The submit listener is attached to document in capture phase: currentTarget is document.
+    // Use the originating form (target), not the delegated listener (currentTarget).
+    const c=ctx(),f=e.target,b=e.submitter||f.querySelector('button[type="submit"], button:not([type])');
     if(!b||b.disabled)return;
     const v=Object.fromEntries(new FormData(f));
     const originalLabel=b.textContent;
