@@ -15,7 +15,8 @@
     'The applicant needs a confirmed DubIoT account': 'El contacto necesita una cuenta confirmada con el mismo correo.',
     'Review the existing hotel subscription before activating access': 'Revisá la suscripción de ese hotel antes de activar el acceso.',
     'Review this user\'s suspended or rejected membership first': 'Revisá el acceso suspendido o rechazado en Administración de usuarios.',
-    'Trial request is no longer pending': 'Otra sesión ya revisó esta solicitud. Actualizá la lista.'
+    'Trial request is no longer pending': 'Otra sesión ya revisó esta solicitud. Actualizá la lista.',
+    'El responsable debe completar el registro con correo verificado y aceptar las versiones vigentes.': 'El responsable ya debe tener su correo confirmado y aceptar las versiones vigentes de privacidad y condiciones en DubIoT antes de activar el hotel. No vuelvas a crear la cuenta.'
   };
   let client, page, offset = 0, generation = 0;
 
@@ -101,7 +102,9 @@
         if (version !== generation) return;
         alert.textContent = errors[error.message] || (error.code === '23505'
           ? 'Ese código de hotel ya existe. Elegí un código diferente o vinculá el hotel existente.'
-          : 'No se pudo completar la operación. Verificá los datos y tu sesión.');
+          : (error.code === '22023' && error.message
+            ? error.message
+            : 'No se pudo completar la operación. Verificá los datos y tu sesión.'));
         alert.hidden = false;
         submit.disabled = close.disabled = false;
       }
