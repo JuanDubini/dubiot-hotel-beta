@@ -366,6 +366,8 @@
     const v=Object.fromEntries(new FormData(f));
     const originalLabel=b.textContent;
     b.disabled=true;
+    b.classList.add('is-submitting');
+    b.setAttribute('aria-busy','true');
     b.textContent='Enviando control…';
     const slowNotice=setTimeout(()=>{if(b.isConnected&&b.disabled)b.textContent='Guardando… comprobá tu conexión';},8000);
     try{
@@ -384,7 +386,7 @@
         try{await app().load();}catch(refreshError){console.warn('Control guardado; no se pudo actualizar la pantalla',refreshError);toast('Control guardado. Actualizá el panel para verlo.');}
       }
     }catch(error){fail(error,'No se pudo guardar el control diario.');}
-    finally{clearTimeout(slowNotice);if(b.isConnected){b.disabled=false;b.textContent=originalLabel;}}
+    finally{clearTimeout(slowNotice);if(b.isConnected){b.disabled=false;b.classList.remove('is-submitting');b.removeAttribute('aria-busy');b.textContent=originalLabel;}}
   }
   function interceptForms(e){
     if(e.target?.id==='dailyCheckForm'){e.preventDefault();e.stopImmediatePropagation();saveControlOfflineAware(e);return;}
