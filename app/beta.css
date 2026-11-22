@@ -165,3 +165,9 @@ body[data-app-mode="field"]:has(.field-layout) .top {
 .field-layout .field-control-title { flex-wrap: wrap; }
 .field-layout .field-control-title p { margin: 6px 0 0; }
 .field-layout #dailyCheckForm[hidden] { display: none; }
+
+/* Feedback visible while a daily control is being saved. */
+#dailyCheckForm button.is-submitting { display: inline-flex; align-items: center; justify-content: center; gap: 9px; cursor: progress; opacity: .9; }
+#dailyCheckForm button.is-submitting::before { content: ''; width: 15px; height: 15px; flex: 0 0 15px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: dubiot-submit-spin .75s linear infinite; }
+@keyframes dubiot-submit-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #dailyCheckForm button.is-submitting::before { animation: none; } }
