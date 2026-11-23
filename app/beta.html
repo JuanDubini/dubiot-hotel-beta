@@ -2,6 +2,28 @@
 <html lang="es">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>
+    (() => {
+      const { origin, pathname, search, hash } = window.location;
+      if (origin !== 'https://juandubini.github.io' ||
+          pathname !== '/dubiot-hotel-beta/beta.html') return;
+
+      const target = new URL('https://hotel.dubiot.com/beta');
+      const team = new URLSearchParams(search).get('equipo');
+      if (team) target.searchParams.set('equipo', team);
+
+      // Preserve the QR fragment, but never carry authentication fragments to another origin.
+      if (/^#asset=[^&#]+$/.test(hash)) {
+        try {
+          target.hash = 'asset=' + encodeURIComponent(decodeURIComponent(hash.slice(7)));
+        } catch {
+          // A malformed QR fragment should still lead to the official login.
+        }
+      }
+
+      window.location.replace(target.href);
+    })();
+  </script>
   <meta name="theme-color" content="#101A24"><meta name="description" content="DubIoT Hotel — mantenimiento y trazabilidad de activos">
   <title>DubIoT Hotel — Beta</title><link rel="manifest" href="manifest.webmanifest?v=brandhotel1"><link rel="icon" type="image/png" href="dubiot-logo-hotel.png">
   <link rel="stylesheet" href="beta.css?v=dailycollapse1">
