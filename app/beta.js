@@ -88,14 +88,8 @@
     }
     const selectedHotel=localStorage.getItem(`dubiot-selected-hotel-${user.id}`);
     membership=activeMemberships.find(m=>m.hotel_id===selectedHotel)||activeMemberships[0]||memberships[0]||null;
-    // Confirmed accounts without active access enter the public demo beta as technicians.
-    // The database RPC limits automatic membership to hotel-demo and preserves other hotels' approval rules.
-    if (!activeMemberships.length && !autoJoinAttempted && authUser.email_confirmed_at) {
-      const requestedRole=memberships.find(m=>m.status==='pending')?.role||'technician';
-      const {error:joinError}=await sb.rpc('request_hotel_membership_by_slug',{_hotel_slug:'hotel-demo',_requested_role:requestedRole});
-      if (!joinError) return acceptSession(authUser,true);
-      console.warn('No se pudo activar el acceso directo a la beta.',joinError);
-    }
+    // Access to a hotel must be explicitly assigned or requested.
+    // Never silently join an unrelated demo hotel on sign-in.
     if (!membership || membership.status !== 'active') {
       return authUser.email && !authUser.email_confirmed_at
         ? showEmailConfirmation(authUser.email)
@@ -201,7 +195,7 @@
         <h1 id="hotelAccessTitle">${title}</h1><p>${description}</p>
       </div>
       ${canRequest ? `<form id="requestForm">
-        <div class="field"><label for="hotelSlug">Código del hotel</label><input id="hotelSlug" class="input" required value="hotel-demo" autocomplete="off"></div>
+        <div class="field"><label for="hotelSlug">Código del hotel</label><input id="hotelSlug" class="input" required placeholder="Código proporcionado por tu hotel" autocomplete="off"></div>
         <div class="field"><label for="role">Rol solicitado</label><select id="role" class="input"><option value="technician">Técnico</option><option value="staff">Personal operativo</option><option value="supervisor">Supervisor</option></select></div>
         <button class="btn primary auth-submit" type="submit">Solicitar acceso</button>
       </form>` : ''}
