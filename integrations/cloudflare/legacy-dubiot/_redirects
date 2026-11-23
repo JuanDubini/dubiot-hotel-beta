@@ -1,0 +1,5 @@
+# Cloudflare Pages: dubiot (dubiot.com y dubiot.pages.dev).
+# Copiar a la raíz estática del proyecto dubiot. No aplicar en dubiot-hotel.
+/prueba https://hotel.dubiot.com/prueba 301
+/prueba/ https://hotel.dubiot.com/prueba 301
+/prueba.html https://hotel.dubiot.com/prueba 301
