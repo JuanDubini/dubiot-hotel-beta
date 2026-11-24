@@ -50,15 +50,24 @@ function dubiotTrialFormRow(response) {
     .toLowerCase().replace(/[^a-z0-9]/g, '');
   const fields = Object.fromEntries(response.getItemResponses().map(item =>
     [normalize(item.getItem().getTitle()), String(item.getResponse()).trim()]));
-  const email = fields.email || fields.correoelectronico || response.getRespondentEmail();
-  if (!email) throw new Error('Una respuesta carece de correo. Revisá el campo obligatorio Email del formulario.');
+  // Accept common field labels without requiring a specific Google Forms wording.
+  const first = (...names) => names.map(name => fields[name]).find(value => value) || '';
+  const email = first('email', 'correoelectronico', 'correoelectronicodecontacto',
+    'emaildecontacto', 'correodecontacto') || response.getRespondentEmail() || '';
+  const contactName = first('nombreyapellido', 'nombreyapellidos', 'nombrecompleto',
+    'nombreyapellidodelresponsable', 'nombre', 'responsable', 'nombredecontacto');
+  const hotelName = first('nombredelhotel', 'nombredelestablecimiento', 'nombrehotel',
+    'hotel', 'establecimiento', 'empresa', 'nombredehotel');
+  if (!email.trim()) throw new Error('Una respuesta carece de correo. Revisá el campo obligatorio Email del formulario.');
+  if (!hotelName.trim()) throw new Error('No se reconoció el nombre del hotel. Revisá el título de esa pregunta en Google Forms.');
   return {
     id: response.getId(),
     submitted_at: response.getTimestamp().toISOString(),
-    contact_name: (fields.nombreyapellido || fields.nombre || '').slice(0, 160),
-    hotel_name: (fields.hotel || fields.establecimiento || '').slice(0, 180),
-    contact_role: (fields.cargo || '').slice(0, 100),
-    email,
-    phone: (fields.whatsapp || fields.telefono || '').slice(0, 60)
+    contact_name: contactName.slice(0, 160),
+    hotel_name: hotelName.slice(0, 180),
+    contact_role: first('cargo', 'puesto', 'funcion', 'rol', 'cargodentrodelhotel').slice(0, 100),
+    email: email.trim(),
+    phone: first('whatsapp', 'numerodewhatsapp', 'telefonodecontacto', 'telefono',
+      'numerodetelefono', 'celular', 'movil').slice(0, 60)
   };
 }
