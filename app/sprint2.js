@@ -53,7 +53,8 @@
     const session=$('#session'); if(!session)return;
     let el=$('#sprint2Connection');
     if(!el){el=document.createElement('span');el.id='sprint2Connection';el.className='connection-indicator';session.prepend(el);}
-    el.textContent=!navigator.onLine?`Sin conexión · ${queueCount} en cola`:queueCount?`Conectado · ${queueCount} pendiente${queueCount===1?'':'s'}`:'Conectado';
+    // navigator.onLine only indicates browser connectivity, not Supabase availability.
+    el.textContent=!navigator.onLine?`Sin Internet · ${queueCount} en cola`:queueCount?`Internet disponible · ${queueCount} pendiente${queueCount===1?'':'s'} de sincronizar`:'Internet disponible';
     el.classList.toggle('offline',!navigator.onLine);el.classList.toggle('queued',queueCount>0);
   }
   function isNetworkError(e){return !navigator.onLine||/network|fetch|failed to fetch|load failed|connection|timeout/i.test(e?.message||'');}
@@ -359,15 +360,35 @@
   }
 
   async function saveControlOfflineAware(e){
-    e.preventDefault();const c=ctx(),f=e.currentTarget,b=e.submitter,v=Object.fromEntries(new FormData(f));b.disabled=true;
+    e.preventDefault();
+    // The submit listener is attached to document in capture phase: currentTarget is document.
+    // Use the originating form (target), not the delegated listener (currentTarget).
+    const c=ctx(),f=e.target,b=e.submitter||f.querySelector('button[type="submit"], button:not([type])');
+    if(!b||b.disabled)return;
+    const v=Object.fromEntries(new FormData(f));
+    const originalLabel=b.textContent;
+    b.disabled=true;
+    b.classList.add('is-submitting');
+    b.setAttribute('aria-busy','true');
+    b.textContent='Enviando control…';
+    const slowNotice=setTimeout(()=>{if(b.isConnected&&b.disabled)b.textContent='Guardando… comprobá tu conexión';},8000);
     try{
+      if(!c?.hotel?.id||!c?.user?.id)throw new Error('La sesión del hotel no está disponible. Volvé a iniciar sesión.');
+      if(!v.equipment_id||!v.check_name)throw new Error('Elegí un activo y un tipo de control.');
       if(v.check_name==='__other__'){
         const name=$('#newCheckType',f)?.value.trim();if(!name)throw new Error('Elegí un tipo de control');
-        if(!c.canManageTeam())throw new Error('Solo el responsable puede agregar tipos de control');await addCatalog('check_types',name);v.check_name=name;
+        if(!c.canManageTeam())throw new Error('Solo el responsable puede agregar tipos de control');
+        await addCatalog('check_types',name);v.check_name=name;
       }
-      const payload={hotel_id:c.hotel.id,equipment_id:v.equipment_id,check_name:v.check_name.trim(),result:v.result,notes:v.notes.trim(),checked_by:c.user.id};
-      const result=await queueOrSend('daily_check',payload,null);toast(result.queued?'Control guardado en la cola; se enviará cuando vuelva la conexión':'Control enviado al panel de PC para verificación');f.reset();if(!result.queued)await app().load();
-    }catch(error){fail(error,'No se pudo guardar el control diario.');b.disabled=false;}
+      const payload={hotel_id:c.hotel.id,equipment_id:v.equipment_id,check_name:v.check_name.trim(),result:v.result,notes:(v.notes||'').trim(),checked_by:c.user.id};
+      const result=await queueOrSend('daily_check',payload,null);
+      toast(result.queued?'Control guardado en la cola; se enviará cuando vuelva la conexión':'Control enviado al panel de PC para verificación');
+      f.reset();
+      if(!result.queued){
+        try{await app().load();}catch(refreshError){console.warn('Control guardado; no se pudo actualizar la pantalla',refreshError);toast('Control guardado. Actualizá el panel para verlo.');}
+      }
+    }catch(error){fail(error,'No se pudo guardar el control diario.');}
+    finally{clearTimeout(slowNotice);if(b.isConnected){b.disabled=false;b.classList.remove('is-submitting');b.removeAttribute('aria-busy');b.textContent=originalLabel;}}
   }
   function interceptForms(e){
     if(e.target?.id==='dailyCheckForm'){e.preventDefault();e.stopImmediatePropagation();saveControlOfflineAware(e);return;}
