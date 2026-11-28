@@ -147,12 +147,14 @@
     const c = ctx();
     if (!nav.dataset.sprintNav) {
       nav.dataset.sprintNav = '1';
-      const ordersButton = document.createElement('button');
-      ordersButton.className = 'navtab';
-      ordersButton.textContent = 'Órdenes de trabajo';
-      ordersButton.dataset.sprintSection = 'orders';
-      nav.append(ordersButton);
-      if (c?.canManageTeam()) {
+      if (!nav.querySelector('[data-sprint-section="orders"]')) {
+        const ordersButton = document.createElement('button');
+        ordersButton.className = 'navtab';
+        ordersButton.textContent = 'Órdenes de trabajo';
+        ordersButton.dataset.sprintSection = 'orders';
+        nav.append(ordersButton);
+      }
+      if (c?.canManageTeam() && !nav.querySelector('[data-sprint-section="settings"]')) {
         const settingsButton = document.createElement('button');
         settingsButton.className = 'navtab';
         settingsButton.textContent = 'Configuración';
@@ -202,6 +204,7 @@
   const orderByPriority = list => [...list].sort((a,b)=>(priorityRank[a.priority]??9)-(priorityRank[b.priority]??9)||new Date(a.due_at||'9999-01-01')-new Date(b.due_at||'9999-01-01'));
   function refreshDashboardKpis(){
     const c=ctx();if(c?.mode!=='panel'||c.activeView!=='dashboard')return;
+    app()?.updateDashboardOrders?.(orders);
     const cards=$$('.metric-card');if(cards.length<4)return;
     const active=orders.filter(o=>!['verified','resolved'].includes(o.status));
     const inProgress=orders.filter(o=>o.status==='in_progress');
